@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+
+# sonos-cli - Command line interface to control 'Sonos ZonePlayer' 
+#
+# Authors:
+#   Thomas Liske <thomas@fiasko-nw.net>
+#
+# Copyright Holder:
+#   2010 (C) Thomas Liske [http://fiasko-nw.net/~thomas/]
+#
+# License:
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this package; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+#
+
+use warnings;
+use strict;
+use Net::UPnP::ControlPoint;
+
+my $obj = Net::UPnP::ControlPoint->new();
+
+my @dev_list = $obj->search(st =>'urn:schemas-upnp-org:device:ZonePlayer:1', mx => 1);
+
+my $devNum= 0;
+foreach my $dev (@dev_list) {
+    my $device_type = $dev->getdevicetype();
+
+    print "$device_type\n";
+    next unless ($device_type eq 'urn:schemas-upnp-org:device:ZonePlayer:1');
+
+    print "[$devNum] : ", $dev->getfriendlyname(), "\n";
+
+    next unless ($dev->getservicebyname('urn:schemas-upnp-org:service:ContentDirectory:1'));
+
+    my $condir_service = $dev->getservicebyname('urn:schemas-upnp-org:service:ContentDirectory:1');
+    next unless(defined($condir_service));
+
+    my %action_in_arg = (
+            'ObjectID' => 0,
+            'BrowseFlag' => 'BrowseDirectChildren',
+            'Filter' => '*',
+            'StartingIndex' => 0,
+            'RequestedCount' => 0,
+            'SortCriteria' => '',
+        );
+    my $action_res = $condir_service->postcontrol('Browse', \%action_in_arg);
+    next unless ($action_res->getstatuscode() == 200);
+
+    my $actrion_out_arg = $action_res->getargumentlist();
+    next unless ($actrion_out_arg->{'Result'});
+
+    my $result = $actrion_out_arg->{'Result'};
+    while ($result =~ m/<dc:title>(.*?)<\/dc:title>/sgi) {
+        print "\t$1\n";
+    }
+
+    $devNum++;
+}
