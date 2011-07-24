@@ -27,43 +27,54 @@
 use warnings;
 use strict;
 use Net::UPnP::ControlPoint;
+use Getopt::Long;
 
-my $obj = Net::UPnP::ControlPoint->new();
+my $O_TIMEOUT = 3;
+my $O_MODE = 'status';
 
-my @dev_list = $obj->search(st =>'urn:schemas-upnp-org:device:ZonePlayer:1', mx => 1);
+GetOptions(
+    'mode=s' => \$O_MODE,
+    'timeout=i' => \$O_TIMEOUT,
+);
+
+my %commands = (
+    Play => {
+	title => 'play media',
+	sargs => { Speed => 1 },
+    },
+    Pause => {
+	title => 'pause media',
+    },
+    Stop => {
+	title => 'stop media',
+    },
+    Next => {
+	title => 'jump to next',
+    },
+    Previous => {
+	title => 'jump to previous',
+    },
+);
+
+my $cp = Net::UPnP::ControlPoint->new();
+my @devs = $cp->search(st =>'urn:schemas-upnp-org:device:ZonePlayer:1', mx => $O_TIMEOUT);
 
 my $devNum= 0;
-foreach my $dev (@dev_list) {
-    my $device_type = $dev->getdevicetype();
-
-    print "$device_type\n";
-    next unless ($device_type eq 'urn:schemas-upnp-org:device:ZonePlayer:1');
-
-    print "[$devNum] : ", $dev->getfriendlyname(), "\n";
-
-    next unless ($dev->getservicebyname('urn:schemas-upnp-org:service:ContentDirectory:1'));
-
-    my $condir_service = $dev->getservicebyname('urn:schemas-upnp-org:service:ContentDirectory:1');
-    next unless(defined($condir_service));
-
-    my %action_in_arg = (
-            'ObjectID' => 0,
-            'BrowseFlag' => 'BrowseDirectChildren',
-            'Filter' => '*',
-            'StartingIndex' => 0,
-            'RequestedCount' => 0,
-            'SortCriteria' => '',
-        );
-    my $action_res = $condir_service->postcontrol('Browse', \%action_in_arg);
-    next unless ($action_res->getstatuscode() == 200);
-
-    my $actrion_out_arg = $action_res->getargumentlist();
-    next unless ($actrion_out_arg->{'Result'});
-
-    my $result = $actrion_out_arg->{'Result'};
-    while ($result =~ m/<dc:title>(.*?)<\/dc:title>/sgi) {
-        print "\t$1\n";
-    }
-
+my %devices;
+foreach my $dev (@devs) {
     $devNum++;
+
+    print "[$devNum]\n";
+
+    my $avt = $dev->getservicebyname('urn:schemas-upnp-org:service:AVTransport:1');
+    my %avt_args = (
+	'InstanceID' => 0,
+    );
+    my $rcode;
+
+    my $cmd = ucfirst(lc($O_MODE));
+    if(exists($commands{$cmd})) {
+	%avt_args = (%avt_args, %{$commands{$cmd}->{'sargs'}}) if(defined($commands{$cmd}->{'sargs'}));
+	$rcode = $avt->postaction($cmd, \%avt_args)->getstatuscode();
+    }
 }
