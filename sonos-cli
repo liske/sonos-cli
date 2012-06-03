@@ -61,10 +61,11 @@ my @devs = $cp->search(st =>'urn:schemas-upnp-org:device:ZonePlayer:1', mx => $O
 
 my $devNum= 0;
 my %devices;
+my $cmd = ucfirst(lc($O_MODE));
 foreach my $dev (@devs) {
     $devNum++;
 
-    print "[$devNum]\n";
+    print "[$devNum] ($cmd)\n";
 
     my $avt = $dev->getservicebyname('urn:schemas-upnp-org:service:AVTransport:1');
     my %avt_args = (
@@ -72,7 +73,6 @@ foreach my $dev (@devs) {
     );
     my $rcode;
 
-    my $cmd = ucfirst(lc($O_MODE));
     if(exists($commands{$cmd})) {
 	%avt_args = (%avt_args, %{$commands{$cmd}->{'sargs'}}) if(defined($commands{$cmd}->{'sargs'}));
 	$rcode = $avt->postaction($cmd, \%avt_args)->getstatuscode();
