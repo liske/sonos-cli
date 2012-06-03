@@ -1,0 +1,6 @@
+sonos-cli
+=========
+
+sonos-cli is a command line interface to control 'Sonos ZonePlayer'.
+It's a small Perl script and requires the following perl packages:
+- Net::UPnP::ControlPoint
