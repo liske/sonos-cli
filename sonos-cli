@@ -29,6 +29,13 @@ use strict;
 use Net::UPnP::ControlPoint;
 use Getopt::Long;
 
+use constant {
+    STATUS_OK => 200,
+
+    SRV_DeviceProperties => 'urn:schemas-upnp-org:service:DeviceProperties:1',
+    SRV_AVTransport => 'urn:schemas-upnp-org:service:AVTransport:1',
+};
+
 my $O_TIMEOUT = 3;
 my $O_MODE = 'status';
 
@@ -65,16 +72,40 @@ my $cmd = ucfirst(lc($O_MODE));
 foreach my $dev (@devs) {
     $devNum++;
 
-    print "[$devNum] ($cmd)\n";
+    print "[$devNum] ";
 
-    my $avt = $dev->getservicebyname('urn:schemas-upnp-org:service:AVTransport:1');
-    my %avt_args = (
+    my %services;
+    $services{(SRV_DeviceProperties)} = $dev->getservicebyname(SRV_DeviceProperties);
+    $services{(SRV_AVTransport)} = $dev->getservicebyname(SRV_AVTransport);
+
+    my $aresp = $services{(SRV_DeviceProperties)}->postaction('GetZoneAttributes');
+    if($aresp->getstatuscode != STATUS_OK) {
+	print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	next;
+    }
+    my $aresu = $aresp->getargumentlist;
+    print $aresu->{CurrentZoneName}, ": ";
+
+
+    my %aargs = (
 	'InstanceID' => 0,
     );
-    my $rcode;
 
     if(exists($commands{$cmd})) {
-	%avt_args = (%avt_args, %{$commands{$cmd}->{'sargs'}}) if(defined($commands{$cmd}->{'sargs'}));
-	$rcode = $avt->postaction($cmd, \%avt_args)->getstatuscode();
+	my %_aargs = (%aargs, %{$commands{$cmd}->{'sargs'}}) if(exists($commands{$cmd}->{'sargs'}));
+	$aresp = $services{(SRV_AVTransport)}->postaction($cmd, \%_aargs);
+	if($aresp->getstatuscode != STATUS_OK) {
+	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	    next;
+	}
     }
+
+    $aresp = $services{(SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
+    if($aresp->getstatuscode != STATUS_OK) {
+	print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	next;
+    }
+
+    $aresu = $aresp->getargumentlist;
+    print $aresu->{CurrentTransportState}, "\n";
 }
