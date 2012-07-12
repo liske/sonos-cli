@@ -47,7 +47,7 @@ GetOptions(
 my %commands = (
     Play => {
 	title => 'play media',
-	sargs => { Speed => 1 },
+	aargs => { Speed => 1 },
     },
     Pause => {
 	title => 'pause media',
@@ -61,6 +61,11 @@ my %commands = (
     Previous => {
 	title => 'jump to previous',
     },
+    Snooze => {
+	title => 'snooze active alarm',
+	action => 'SnoozeAlarm',
+	aargs => { Duration => 7*60 },
+    }
 );
 
 my $cp = Net::UPnP::ControlPoint->new();
@@ -92,8 +97,8 @@ foreach my $dev (@devs) {
     );
 
     if(exists($commands{$cmd})) {
-	my %_aargs = (%aargs, %{$commands{$cmd}->{'sargs'}}) if(exists($commands{$cmd}->{'sargs'}));
-	$aresp = $services{(SRV_AVTransport)}->postaction($cmd, \%_aargs);
+	my %_aargs = (%aargs, %{$commands{$cmd}->{aargs}}) if(exists($commands{$cmd}->{aargs}));
+	$aresp = $services{(SRV_AVTransport)}->postaction((exists($commands{$cmd}->{action}) ? $commands{$cmd}->{action} : $cmd), \%_aargs);
 	if($aresp->getstatuscode != STATUS_OK) {
 	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
 	    next;
