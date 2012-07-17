@@ -83,19 +83,60 @@ foreach my $dev (@devs) {
     $services{(SRV_DeviceProperties)} = $dev->getservicebyname(SRV_DeviceProperties);
     $services{(SRV_AVTransport)} = $dev->getservicebyname(SRV_AVTransport);
 
-    my $aresp = $services{(SRV_DeviceProperties)}->postaction('GetZoneAttributes');
+
+    # GetZoneInfo (get MACAddress to build UDN)
+    # HACK: $dev->getudn() is broken, try to build the UDN
+    #       from the MACAddress - this might fail :-(
+    my $aresp = $services{(SRV_DeviceProperties)}->postaction('GetZoneInfo');
     if($aresp->getstatuscode != STATUS_OK) {
 	print STDERR "Got error code ".$aresp->getstatuscode."!\n";
 	next;
     }
-    my $aresu = $aresp->getargumentlist;
-    print $aresu->{CurrentZoneName}, ": ";
+    my $ZoneInfo = $aresp->getargumentlist;
+    my $UDN = $ZoneInfo->{MACAddress};
+    $UDN =~ s/://g;
+    $UDN = "RINCON_${UDN}01400";
+
+    $devices{$UDN}->{dev} = $dev;
+    $devices{$UDN}->{ZoneInfo} = $ZoneInfo;
+
+
+    # GetZoneAttributes (get zone name)
+    $aresp = $services{(SRV_DeviceProperties)}->postaction('GetZoneAttributes');
+    if($aresp->getstatuscode != STATUS_OK) {
+	print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	next;
+    }
+    $devices{$UDN}->{ZoneAttributes} = $aresp->getargumentlist;
 
 
     my %aargs = (
 	'InstanceID' => 0,
     );
 
+
+    $aresp = $services{(SRV_AVTransport)}->postaction('GetPositionInfo', \%aargs);
+    if($aresp->getstatuscode != STATUS_OK) {
+	print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	next;
+    }
+    $devices{$UDN}->{PositionInfo} = $aresp->getargumentlist;
+
+
+    $aresp = $services{(SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
+    if($aresp->getstatuscode != STATUS_OK) {
+	print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	next;
+    }
+    $devices{$UDN}->{TransportInfo} = $aresp->getargumentlist;
+
+
+    print $devices{$UDN}->{ZoneAttributes}->{CurrentZoneName}, ": ";
+    print $devices{$UDN}->{TransportInfo}->{CurrentTransportState}, " ";
+    print $devices{$UDN}->{PositionInfo}->{TrackURI}, "\n";
+
+
+    # run user command
     if(exists($commands{$cmd})) {
 	my %_aargs = (%aargs, %{$commands{$cmd}->{aargs}}) if(exists($commands{$cmd}->{aargs}));
 	$aresp = $services{(SRV_AVTransport)}->postaction((exists($commands{$cmd}->{action}) ? $commands{$cmd}->{action} : $cmd), \%_aargs);
@@ -104,13 +145,4 @@ foreach my $dev (@devs) {
 	    next;
 	}
     }
-
-    $aresp = $services{(SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
-    if($aresp->getstatuscode != STATUS_OK) {
-	print STDERR "Got error code ".$aresp->getstatuscode."!\n";
-	next;
-    }
-
-    $aresu = $aresp->getargumentlist;
-    print $aresu->{CurrentTransportState}, "\n";
 }
