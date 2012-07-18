@@ -74,10 +74,9 @@ my @devs = $cp->search(st =>'urn:schemas-upnp-org:device:ZonePlayer:1', mx => $O
 my $devNum= 0;
 my %devices;
 my $cmd = ucfirst(lc($O_MODE));
+my %zones;
 foreach my $dev (@devs) {
     $devNum++;
-
-    print "[$devNum] ";
 
     my %services;
     $services{(SRV_DeviceProperties)} = $dev->getservicebyname(SRV_DeviceProperties);
@@ -98,6 +97,7 @@ foreach my $dev (@devs) {
     $UDN = "RINCON_${UDN}01400";
 
     $devices{$UDN}->{dev} = $dev;
+    $devices{$UDN}->{services} = \%services;
     $devices{$UDN}->{ZoneInfo} = $ZoneInfo;
 
 
@@ -130,18 +130,33 @@ foreach my $dev (@devs) {
     }
     $devices{$UDN}->{TransportInfo} = $aresp->getargumentlist;
 
+    if($devices{$UDN}->{PositionInfo}->{TrackURI} =~ /^x-rincon:(RINCON_[\dA-F]+)/) {
+	push(@{$zones{$1}->{zp}}, $UDN);
+    }
+    else {
+	push(@{$zones{$UDN}->{zp}}, $UDN);
+    }
+}
 
-    print $devices{$UDN}->{ZoneAttributes}->{CurrentZoneName}, ": ";
-    print $devices{$UDN}->{TransportInfo}->{CurrentTransportState}, " ";
-    print $devices{$UDN}->{PositionInfo}->{TrackURI}, "\n";
+
+foreach my $zone (keys %zones) {
+    print "[", join(', ', map { $devices{$_}->{ZoneAttributes}->{CurrentZoneName} } @{$zones{$zone}->{zp}}), "]\n\t";
+    print $devices{$zone}->{TransportInfo}->{CurrentTransportState}, " ";
+    print $devices{$zone}->{PositionInfo}->{TrackURI}, "\n\n";
+}
 
 
+if(exists($commands{$cmd})) {
+    my %aargs = (
+	'InstanceID' => 0,
+	(exists($commands{$cmd}->{aargs}) ? %{$commands{$cmd}->{aargs}} : ()),
+    );
+
+    foreach my $UDN (keys %devices) {
     # run user command
-    if(exists($commands{$cmd})) {
-	my %_aargs = (%aargs, %{$commands{$cmd}->{aargs}}) if(exists($commands{$cmd}->{aargs}));
-	$aresp = $services{(SRV_AVTransport)}->postaction((exists($commands{$cmd}->{action}) ? $commands{$cmd}->{action} : $cmd), \%_aargs);
+	my $aresp = $devices{$UDN}->{services}->{(SRV_AVTransport)}->postaction((exists($commands{$cmd}->{action}) ? $commands{$cmd}->{action} : $cmd), \%aargs);
 	if($aresp->getstatuscode != STATUS_OK) {
-	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	    print STDERR "[$devices{$UDN}->{ZoneAttributes}->{CurrentZoneName}] Got error code ".$aresp->getstatuscode."!\n";
 	    next;
 	}
     }
