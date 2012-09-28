@@ -47,25 +47,37 @@ GetOptions(
 my %commands = (
     Play => {
 	title => 'play media',
+	service => SRV_AVTransport,
 	aargs => { Speed => 1 },
     },
     Pause => {
 	title => 'pause media',
+	service => SRV_AVTransport,
     },
     Stop => {
 	title => 'stop media',
+	service => SRV_AVTransport,
     },
     Next => {
 	title => 'jump to next',
+	service => SRV_AVTransport,
     },
     Previous => {
 	title => 'jump to previous',
+	service => SRV_AVTransport,
     },
     Snooze => {
 	title => 'snooze active alarm',
+	service => SRV_AVTransport,
 	action => 'SnoozeAlarm',
 	aargs => { Duration => 7*60 },
-    }
+    },
+
+    Getled => {
+	title => 'get current LED status',
+	service => SRV_DeviceProperties,
+	action => 'GetLEDState',
+    },
 );
 
 my $cp = Net::UPnP::ControlPoint->new();
@@ -154,10 +166,18 @@ if(exists($commands{$cmd})) {
 
     foreach my $UDN (keys %devices) {
     # run user command
-	my $aresp = $devices{$UDN}->{services}->{(SRV_AVTransport)}->postaction((exists($commands{$cmd}->{action}) ? $commands{$cmd}->{action} : $cmd), \%aargs);
+	my $aresp = $devices{$UDN}->{services}->{ $commands{$cmd}->{service} }->postaction((exists($commands{$cmd}->{action}) ? $commands{$cmd}->{action} : $cmd), \%aargs);
 	if($aresp->getstatuscode != STATUS_OK) {
 	    print STDERR "[$devices{$UDN}->{ZoneAttributes}->{CurrentZoneName}] Got error code ".$aresp->getstatuscode."!\n";
 	    next;
 	}
+	else {
+	    print "[$devices{$UDN}->{ZoneAttributes}->{CurrentZoneName}]\n";
+	    my $rargs = $aresp->getargumentlist();
+	    foreach my $k (keys %$rargs) {
+		print "\t$k = $rargs->{$k}\n";
+	    }
+	    print "\n";
+       }
     }
 }
