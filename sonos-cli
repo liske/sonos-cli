@@ -150,15 +150,14 @@ foreach my $dev (@devs) {
     }
 }
 
-
-foreach my $zone (keys %zones) {
-    print "[", join(', ', map { $devices{$_}->{ZoneAttributes}->{CurrentZoneName} } @{$zones{$zone}->{zp}}), "]\n\t";
-    print $devices{$zone}->{TransportInfo}->{CurrentTransportState}, " ";
-    print $devices{$zone}->{PositionInfo}->{TrackURI}, "\n\n";
+unless(exists($commands{$cmd})) {
+    foreach my $zone (keys %zones) {
+	print "[", join(', ', map { $devices{$_}->{ZoneAttributes}->{CurrentZoneName} } @{$zones{$zone}->{zp}}), "]\n\t";
+	print $devices{$zone}->{TransportInfo}->{CurrentTransportState}, " ";
+	print $devices{$zone}->{PositionInfo}->{TrackURI}, "\n\n";
+    }
 }
-
-
-if(exists($commands{$cmd})) {
+else {
     my %aargs = (
 	'InstanceID' => 0,
 	(exists($commands{$cmd}->{aargs}) ? %{$commands{$cmd}->{aargs}} : ()),
