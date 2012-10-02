@@ -78,6 +78,20 @@ my %commands = (
 	service => SRV_DeviceProperties,
 	action => 'GetLEDState',
     },
+
+    Setledon => {
+	title => 'set LED status to on',
+	service => SRV_DeviceProperties,
+	action => 'SetLEDState',
+	aargs => { DesiredLEDState => 'On' },
+    },
+
+    Setledoff => {
+	title => 'set LED status to off',
+	service => SRV_DeviceProperties,
+	action => 'SetLEDState',
+	aargs => { DesiredLEDState => 'Off' },
+    },
 );
 
 my $cp = Net::UPnP::ControlPoint->new();
