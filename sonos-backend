@@ -1,0 +1,139 @@
+#!/usr/bin/perl
+
+# sonos-cli - Command line interface to control 'Sonos ZonePlayer' 
+#
+# Authors:
+#   Thomas Liske <thomas@fiasko-nw.net>
+#
+# Copyright Holder:
+#   2010 - 2012 (C) Thomas Liske [http://fiasko-nw.net/~thomas/]
+#
+# License:
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this package; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+#
+
+use EV;
+use Getopt::Std;
+use Log::Dispatch;
+use Log::Dispatch::Screen;
+use Log::Dispatch::Syslog;
+use Proc::Daemon;
+use Proc::PID::File;
+use IO::Socket;
+use POSIX qw(mkfifo F_SETFL O_NONBLOCK);
+use strict;
+use warnings;
+
+$0 = 'sonos-backend';
+
+our $opt_l = '127.0.0.1';
+our $opt_p = 1701;
+our $opt_d;
+our $opt_f;
+our $opt_r = '/var/run';
+getopts('l:p:r:df');
+
+my $mypid = $$;
+
+my $logfmt = sub { my %p = @_; chomp($p{'message'}); return ("[$p{level}] $p{message}\n"); };
+$main::logger = Log::Dispatch->new(callbacks => $logfmt);
+$main::logger->add(
+    Log::Dispatch::Screen->new(
+	name => 'console',
+	min_level => ($opt_f ? ($opt_d ? 'info' : 'notice') : 'warning'),
+    )
+);
+$main::logger->add(
+    Log::Dispatch::Syslog->new(
+	name => 'syslog',
+	min_level => ($opt_d ? 'info' : 'notice'),
+	ident => 'sonos-backend',
+	logopt => 'pid',
+	facility => 'daemon',
+    )
+) unless($opt_f);
+
+sub WARN_handler {
+    my($signal) = @_;
+
+	if(defined $main::logger) {
+		$main::logger->warning("WARNING: $signal");
+	}
+	else {
+		printf STDERR "WARNING: $signal\n";
+	}
+}
+
+sub DIE_handler {
+    my($signal) = @_;
+
+	if(defined $main::logger) {
+		$main::logger->critical("ERROR: $signal");
+	}
+	else {
+		printf STDERR "ERROR: $signal\n";
+	}
+
+	exit 1;
+}
+
+sub INT_handler {
+    if(defined($mypid) && ($mypid == $$)) {
+	if(defined $main::logger) {
+	    $main::logger->notice('Got SIGINT, terminating.');
+	}
+	else {
+	    printf STDERR "Got SIGINT, terminating.\n";
+	}
+    }
+
+    exit;
+}
+
+$SIG{__WARN__} = 'WARN_handler';
+$SIG{__DIE__}  = 'DIE_handler';
+$SIG{INT} = 'INT_handler';
+$SIG{PIPE} = 'IGNORE';
+$SIG{CHLD} = 'IGNORE';
+
+END {
+	if(defined($mypid) && ($mypid == $$)) {
+		my $m = "terminated (rc=$?)";
+		if(defined $main::logger) {
+			$main::logger->notice($m);
+		}
+		else {
+			print STDERR "$m\n";
+		}
+	}
+}
+
+unless($opt_f) {
+    # daemonize
+    eval { Proc::Daemon::Init() };
+    die "Unable to fork daemon: $@\n" if($@);
+
+    # check if we are alone
+    eval {
+	die "Daemon is already running or PID file is stale!\n" if(Proc::PID::File->running(verify => 1, dir => $opt_r));
+    };
+    die "Failed to setup PID file: $@\n" if($@);
+
+    # detach log to console
+    $main::logger->remove('console');
+}
+
+$main::logger->info("Enter event loop...");
+EV::run;
