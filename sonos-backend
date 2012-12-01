@@ -24,7 +24,7 @@
 #   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 #
 
-use EV;
+use AnyEvent;
 use Getopt::Std;
 use Log::Dispatch;
 use Log::Dispatch::Screen;
@@ -136,4 +136,4 @@ unless($opt_f) {
 }
 
 $main::logger->info("Enter event loop...");
-EV::run;
+AnyEvent->condvar->recv;

@@ -12,3 +12,4 @@ Install
 
 sonos-cli is a small Perl script and requires the following perl packages:
 * Net::UPnP::ControlPoint
+* AnyEvent (EV backend is prefered)
