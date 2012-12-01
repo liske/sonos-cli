@@ -58,6 +58,9 @@ my %commands = (
 	title => 'stop media',
 	service => SRV_AVTransport,
     },
+    Toggle => {
+	title => 'pause/play media toggle'
+    },
     Next => {
 	title => 'jump to next',
 	service => SRV_AVTransport,
@@ -172,6 +175,17 @@ unless(exists($commands{$cmd})) {
     }
 }
 else {
+    if ($cmd eq 'Toggle') {
+        # if any zone is paused, send play to them all; sometimes sending Pause
+        # successfully pauses playback but leaves the state as PLAYING. Dunno why.
+        my $paused = undef;
+        foreach my $UDN (keys %devices) {
+            my $state  = $devices{$UDN}->{TransportInfo}->{CurrentTransportState};
+            $paused = $paused || ($state =~ /PAUSED/);
+        }
+        $cmd = $paused ? "Play" : "Pause";
+    }
+
     my %aargs = (
 	'InstanceID' => 0,
 	(exists($commands{$cmd}->{aargs}) ? %{$commands{$cmd}->{aargs}} : ()),
