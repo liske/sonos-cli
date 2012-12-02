@@ -27,15 +27,26 @@ package Net::UPnP::ControlPoint::SONOS;
 use strict;
 use warnings;
 
-use Net::UPnP::ControlPoint;
-our @ISA = qw(Net::UPnP::ControlPoint);
-
 use constant {
-    STATUS_OK => 200,
+    SONOS_STATUS_OK => 200,
 
-    SRV_DeviceProperties => 'urn:schemas-upnp-org:service:DeviceProperties:1',
-    SRV_AVTransport => 'urn:schemas-upnp-org:service:AVTransport:1',
+    SONOS_SRV_AlarmClock => 'urn:schemas-upnp-org:service:AlarmClock:1',
+    SONOS_SRV_DeviceProperties => 'urn:schemas-upnp-org:service:DeviceProperties:1',
+    SONOS_SRV_AVTransport => 'urn:schemas-upnp-org:service:AVTransport:1',
 };
+
+use Net::UPnP::ControlPoint;
+require Exporter;
+our @ISA = qw(Net::UPnP::ControlPoint Exporter);
+
+our @EXPORT = qw(
+    SONOS_STATUS_OK
+    SONOS_SRV_AlarmClock
+    SONOS_SRV_DeviceProperties
+    SONOS_SRV_AVTransport
+);
+
+our $VERSION = '0.1.0';
 
 sub new {
     my ($class) = @_;
@@ -55,15 +66,16 @@ sub search {
     my @devs = $self->SUPER::search(st => 'urn:schemas-upnp-org:device:ZonePlayer:1', mx => $self->{_sonos}->{search_timeout});
     foreach my $dev (@devs) {
 	my %services;
-	$services{(SRV_DeviceProperties)} = $dev->getservicebyname(SRV_DeviceProperties);
-	$services{(SRV_AVTransport)} = $dev->getservicebyname(SRV_AVTransport);
+	$services{(SONOS_SRV_AlarmClock)} = $dev->getservicebyname(SONOS_SRV_AlarmClock);
+	$services{(SONOS_SRV_DeviceProperties)} = $dev->getservicebyname(SONOS_SRV_DeviceProperties);
+	$services{(SONOS_SRV_AVTransport)} = $dev->getservicebyname(SONOS_SRV_AVTransport);
 
 
 	# GetZoneInfo (get MACAddress to build UDN)
 	# HACK: $dev->getudn() is broken, try to build the UDN
 	#       from the MACAddress - this might fail :-(
-	my $aresp = $services{(SRV_DeviceProperties)}->postaction('GetZoneInfo');
-	if($aresp->getstatuscode != STATUS_OK) {
+	my $aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneInfo');
+	if($aresp->getstatuscode != SONOS_STATUS_OK) {
 	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
 	    next;
 	}
@@ -78,8 +90,8 @@ sub search {
 
 
 	# GetZoneAttributes (get zone name)
-	$aresp = $services{(SRV_DeviceProperties)}->postaction('GetZoneAttributes');
-	if($aresp->getstatuscode != STATUS_OK) {
+	$aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneAttributes');
+	if($aresp->getstatuscode != SONOS_STATUS_OK) {
 	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
 	    next;
 	}
@@ -91,16 +103,16 @@ sub search {
 	);
 
 
-	$aresp = $services{(SRV_AVTransport)}->postaction('GetPositionInfo', \%aargs);
-	if($aresp->getstatuscode != STATUS_OK) {
+	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetPositionInfo', \%aargs);
+	if($aresp->getstatuscode != SONOS_STATUS_OK) {
 	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
 	    next;
 	}
 	$self->{_sonos}->{devices}->{$UDN}->{PositionInfo} = $aresp->getargumentlist;
 
 
-	$aresp = $services{(SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
-	if($aresp->getstatuscode != STATUS_OK) {
+	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
+	if($aresp->getstatuscode != SONOS_STATUS_OK) {
 	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
 	    next;
 	}

@@ -29,13 +29,6 @@ use strict;
 use Net::UPnP::ControlPoint::SONOS;
 use Getopt::Long;
 
-use constant {
-    STATUS_OK => 200,
-
-    SRV_DeviceProperties => 'urn:schemas-upnp-org:service:DeviceProperties:1',
-    SRV_AVTransport => 'urn:schemas-upnp-org:service:AVTransport:1',
-};
-
 my $O_TIMEOUT = 3;
 my $O_MODE = 'status';
 
@@ -47,53 +40,59 @@ GetOptions(
 my %commands = (
     Play => {
 	title => 'play media',
-	service => SRV_AVTransport,
+	service => SONOS_SRV_AVTransport,
 	aargs => { Speed => 1 },
     },
     Pause => {
 	title => 'pause media',
-	service => SRV_AVTransport,
+	service => SONOS_SRV_AVTransport,
     },
     Stop => {
 	title => 'stop media',
-	service => SRV_AVTransport,
+	service => SONOS_SRV_AVTransport,
     },
     Toggle => {
 	title => 'pause/play media toggle'
     },
     Next => {
 	title => 'jump to next',
-	service => SRV_AVTransport,
+	service => SONOS_SRV_AVTransport,
     },
     Previous => {
 	title => 'jump to previous',
-	service => SRV_AVTransport,
+	service => SONOS_SRV_AVTransport,
     },
     Snooze => {
 	title => 'snooze active alarm',
-	service => SRV_AVTransport,
+	service => SONOS_SRV_AVTransport,
 	action => 'SnoozeAlarm',
 	aargs => { Duration => 7*60 },
     },
 
     Getled => {
 	title => 'get current LED status',
-	service => SRV_DeviceProperties,
+	service => SONOS_SRV_DeviceProperties,
 	action => 'GetLEDState',
     },
 
     Setledon => {
 	title => 'set LED status to on',
-	service => SRV_DeviceProperties,
+	service => SONOS_SRV_DeviceProperties,
 	action => 'SetLEDState',
 	aargs => { DesiredLEDState => 'On' },
     },
 
     Setledoff => {
 	title => 'set LED status to off',
-	service => SRV_DeviceProperties,
+	service => SONOS_SRV_DeviceProperties,
 	action => 'SetLEDState',
 	aargs => { DesiredLEDState => 'Off' },
+    },
+
+    Gettimeserver => {
+	title => 'get configured NTP servers',
+	service => SONOS_SRV_AlarmClock,
+	action => 'GetTimeServer',
     },
 );
 
@@ -129,7 +128,7 @@ else {
     foreach my $UDN (keys %devices) {
     # run user command
 	my $aresp = $devices{$UDN}->{services}->{ $commands{$cmd}->{service} }->postaction((exists($commands{$cmd}->{action}) ? $commands{$cmd}->{action} : $cmd), \%aargs);
-	if($aresp->getstatuscode != STATUS_OK) {
+	if($aresp->getstatuscode != SONOS_STATUS_OK) {
 	    print STDERR "[$devices{$UDN}->{ZoneAttributes}->{CurrentZoneName}] Got error code ".$aresp->getstatuscode."!\n";
 	    next;
 	}
