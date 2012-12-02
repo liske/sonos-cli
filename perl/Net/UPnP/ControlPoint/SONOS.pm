@@ -26,6 +26,7 @@ package Net::UPnP::ControlPoint::SONOS;
 
 use strict;
 use warnings;
+use Carp;
 
 use constant {
     SONOS_STATUS_OK => 200,
@@ -76,7 +77,7 @@ sub search {
 	#       from the MACAddress - this might fail :-(
 	my $aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneInfo');
 	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	    carp 'Got error code '.$aresp->getstatuscode;
 	    next;
 	}
 	my $ZoneInfo = $aresp->getargumentlist;
@@ -92,7 +93,7 @@ sub search {
 	# GetZoneAttributes (get zone name)
 	$aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneAttributes');
 	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	    carp 'Got error code '.$aresp->getstatuscode;
 	    next;
 	}
 	$self->{_sonos}->{devices}->{$UDN}->{ZoneAttributes} = $aresp->getargumentlist;
@@ -105,7 +106,7 @@ sub search {
 
 	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetPositionInfo', \%aargs);
 	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	    carp 'Got error code '.$aresp->getstatuscode;
 	    next;
 	}
 	$self->{_sonos}->{devices}->{$UDN}->{PositionInfo} = $aresp->getargumentlist;
@@ -113,7 +114,7 @@ sub search {
 
 	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
 	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    print STDERR "Got error code ".$aresp->getstatuscode."!\n";
+	    carp 'Got error code '.$aresp->getstatuscode;
 	    next;
 	}
 	$self->{_sonos}->{devices}->{$UDN}->{TransportInfo} = $aresp->getargumentlist;
