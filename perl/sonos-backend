@@ -29,6 +29,7 @@ use Getopt::Std;
 use Log::Dispatch;
 use Log::Dispatch::Screen;
 use Log::Dispatch::Syslog;
+use Net::UPnP::ControlPoint::SONOS;
 use Proc::Daemon;
 use Proc::PID::File;
 use IO::Socket;
@@ -46,6 +47,7 @@ our $opt_r = '/var/run';
 getopts('l:p:r:df');
 
 my $mypid = $$;
+my @pipe_pids;
 
 my $logfmt = sub { my %p = @_; chomp($p{'message'}); return ("[$p{level}] $p{message}\n"); };
 $main::logger = Log::Dispatch->new(callbacks => $logfmt);
@@ -120,6 +122,11 @@ END {
 	}
 }
 
+unless(-p $conf{'pipe'}) {
+    unlink($conf{'pipe'});
+    mkfifo($conf{'pipe'}, 0770) || die "Failed to setup fifo $conf{status_pipe}: $!\n";
+}
+
 unless($opt_f) {
     # daemonize
     eval { Proc::Daemon::Init() };
@@ -134,6 +141,29 @@ unless($opt_f) {
     # detach log to console
     $main::logger->remove('console');
 }
+
+sub upnp_scan {
+    $0 .= "#SCAN";
+    close(STDIN);
+    $logger->remove('console') unless($opt_f);
+    @pipe_pids = ();
+
+    my $pipe = shift;
+
+    for(;;) {
+
+	print STDOUT "$status\n";
+    }
+}
+
+if(my $pid = open(PIPE, '-|')) {
+#    push(@pipe_pids, $pid);
+#    $select->add(\*PSTATUS);
+}
+else {
+    upnp_scanner();
+}
+
 
 $main::logger->info("Enter event loop...");
 AnyEvent->condvar->recv;
