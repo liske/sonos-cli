@@ -52,7 +52,7 @@ sub new {
     my ($class) = @_;
     my $self = $class->SUPER::new();
 
-    $self->{_sonos}->{search_timeout} = 5;
+    $self->{_sonos}->{search_timeout} = 3;
 
     bless $self, $class;
     return $self;
