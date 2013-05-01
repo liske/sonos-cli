@@ -132,12 +132,16 @@ sub getDevices {
     my $self = shift;
     $self->search() unless(exists($self->{_sonos}->{devices}) && defined($self->{_sonos}->{devices}));
 
+    return ( ) unless(exists($self->{_sonos}->{devices}) && defined($self->{_sonos}->{devices}));
+
     return %{$self->{_sonos}->{devices}};
 }
 
 sub getZones {
     my $self = shift;
     $self->search() unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
+
+    return ( ) unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
 
     return %{$self->{_sonos}->{zones}};
 }
