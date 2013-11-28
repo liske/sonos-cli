@@ -6,7 +6,7 @@
 #   Thomas Liske <thomas@fiasko-nw.net>
 #
 # Copyright Holder:
-#   2010 - 2012 (C) Thomas Liske [http://fiasko-nw.net/~thomas/]
+#   2010 - 2013 (C) Thomas Liske [http://fiasko-nw.net/~thomas/]
 #
 # License:
 #   This program is free software; you can redistribute it and/or modify
@@ -25,7 +25,9 @@
 #
 
 use AnyEvent;
+use AnyEvent::HTTPD;
 use Getopt::Std;
+use JSON;
 use Log::Dispatch;
 use Log::Dispatch::Screen;
 use Log::Dispatch::Syslog;
@@ -33,14 +35,14 @@ use Net::UPnP::ControlPoint::SONOS;
 use Proc::Daemon;
 use Proc::PID::File;
 use IO::Socket;
-use POSIX qw(mkfifo F_SETFL O_NONBLOCK);
+use POSIX qw(mkfifo F_SETFL O_NONBLOCK EAGAIN);
 use strict;
 use warnings;
 
 $0 = 'sonos-backend';
 
 our $opt_l = '127.0.0.1';
-our $opt_p = 1701;
+our $opt_p;
 our $opt_d;
 our $opt_f;
 our $opt_r = '/var/run';
@@ -48,6 +50,7 @@ getopts('l:p:r:df');
 
 my $mypid = $$;
 my @pipe_pids;
+my $json = JSON->new->convert_blessed;
 
 my $logfmt = sub { my %p = @_; chomp($p{'message'}); return ("[$p{level}] $p{message}\n"); };
 $main::logger = Log::Dispatch->new(callbacks => $logfmt);
@@ -122,10 +125,10 @@ END {
 	}
 }
 
-unless(-p $conf{'pipe'}) {
-    unlink($conf{'pipe'});
-    mkfifo($conf{'pipe'}, 0770) || die "Failed to setup fifo $conf{status_pipe}: $!\n";
-}
+#unless(-p $conf{'pipe'}) {
+#    unlink($conf{'pipe'});
+#    mkfifo($conf{'pipe'}, 0770) || die "Failed to setup fifo $conf{status_pipe}: $!\n";
+#}
 
 unless($opt_f) {
     # daemonize
@@ -142,28 +145,77 @@ unless($opt_f) {
     $main::logger->remove('console');
 }
 
-sub upnp_scan {
-    $0 .= "#SCAN";
+sub upnp_scanner($) {
+    $0 .= "#scanner";
+
     close(STDIN);
-    $logger->remove('console') unless($opt_f);
-    @pipe_pids = ();
+    unless($opt_f) {
+	close(STDOUT);
+	close(STDERR);
+	$main::logger->remove('console');
+    }
 
     my $pipe = shift;
-
+    my $sonos = Net::UPnP::ControlPoint::SONOS->new();
     for(;;) {
+	$main::logger->info("searching devices...");
+	$sonos->search();
 
-	print STDOUT "$status\n";
+	my %devices = $sonos->getDevices();
+	my %zones = $sonos->getZones();
+
+	my %state;
+	foreach my $zone (keys %zones) {
+	    $state{zones}->{$zone} = {
+		zp => [ @{$zones{$zone}} ],
+		state => $devices{$zone}->{TransportInfo}->{CurrentTransportState},
+		uri => $devices{$zone}->{PositionInfo}->{TrackURI},
+	    };
+	}
+	
+	print $pipe $json->pretty->encode(\%state)."\n";
+	$pipe->flush();
+	sleep 60;
     }
 }
 
-if(my $pid = open(PIPE, '-|')) {
-#    push(@pipe_pids, $pid);
-#    $select->add(\*PSTATUS);
+pipe my $preader, my $pwriter;
+my $pid = fork();
+defined($pid) || die "can't fork: $!\n";
+
+my $w;
+if($pid) {
+    $pwriter->close();
+    push(@pipe_pids, $pid);
+
+    $w = AnyEvent->io(fh => $preader, poll => 'r', cb => sub {
+	$main::logger->notice(".");
+
+	while(defined(my $d = <$preader>)) {
+	    $main::logger->notice("GOT: $d");
+	}
+
+	if($! == EAGAIN) {
+	    undef $w;
+	    $main::logger->notice("child died");
+	    return;
+	}
+    });
 }
 else {
-    upnp_scanner();
+    $preader->close();
+    upnp_scanner($pwriter);
+    exit 0;
 }
 
+my $httpd = AnyEvent::HTTPD->new();
+$httpd->reg_cb (
+    request => sub {
+	    my ($httpd, $req) = @_;
+	    $main::logger->notice($req->url);
+    },
+);
+$main::logger->notice("Listening on ".$httpd->host.":".$httpd->port."...");
 
 $main::logger->info("Enter event loop...");
 AnyEvent->condvar->recv;
