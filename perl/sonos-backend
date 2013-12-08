@@ -27,7 +27,8 @@
 use AnyEvent;
 use AnyEvent::HTTPD;
 use Getopt::Std;
-use JSON;
+use MIME::Base64;
+use YAML;
 use Log::Dispatch;
 use Log::Dispatch::Screen;
 use Log::Dispatch::Syslog;
@@ -38,6 +39,11 @@ use IO::Socket;
 use POSIX qw(mkfifo F_SETFL O_NONBLOCK EAGAIN);
 use strict;
 use warnings;
+
+BEGIN {
+    $INC{'Mo/builder.pm'} = 1;
+    $INC{'Mo/default.pm'} = 1;
+}
 
 $0 = 'sonos-backend';
 
@@ -50,7 +56,6 @@ getopts('l:p:r:df');
 
 my $mypid = $$;
 my @pipe_pids;
-my $json = JSON->new->convert_blessed;
 
 my $logfmt = sub { my %p = @_; chomp($p{'message'}); return ("[$p{level}] $p{message}\n"); };
 $main::logger = Log::Dispatch->new(callbacks => $logfmt);
@@ -145,77 +150,20 @@ unless($opt_f) {
     $main::logger->remove('console');
 }
 
-sub upnp_scanner($) {
-    $0 .= "#scanner";
-
-    close(STDIN);
-    unless($opt_f) {
-	close(STDOUT);
-	close(STDERR);
-	$main::logger->remove('console');
-    }
-
-    my $pipe = shift;
-    my $sonos = Net::UPnP::ControlPoint::SONOS->new();
-    for(;;) {
-	$main::logger->info("searching devices...");
-	$sonos->search();
-
-	my %devices = $sonos->getDevices();
-	my %zones = $sonos->getZones();
-
-	my %state;
-	foreach my $zone (keys %zones) {
-	    $state{zones}->{$zone} = {
-		zp => [ @{$zones{$zone}} ],
-		state => $devices{$zone}->{TransportInfo}->{CurrentTransportState},
-		uri => $devices{$zone}->{PositionInfo}->{TrackURI},
-	    };
-	}
-	
-	print $pipe $json->pretty->encode(\%state)."\n";
-	$pipe->flush();
-	sleep 60;
-    }
-}
-
-pipe my $preader, my $pwriter;
-my $pid = fork();
-defined($pid) || die "can't fork: $!\n";
-
-my $w;
-if($pid) {
-    $pwriter->close();
-    push(@pipe_pids, $pid);
-
-    $w = AnyEvent->io(fh => $preader, poll => 'r', cb => sub {
-	$main::logger->notice(".");
-
-	while(defined(my $d = <$preader>)) {
-	    $main::logger->notice("GOT: $d");
-	}
-
-	if($! == EAGAIN) {
-	    undef $w;
-	    $main::logger->notice("child died");
-	    return;
-	}
-    });
-}
-else {
-    $preader->close();
-    upnp_scanner($pwriter);
-    exit 0;
-}
 
 my $httpd = AnyEvent::HTTPD->new();
 $httpd->reg_cb (
     request => sub {
-	    my ($httpd, $req) = @_;
-	    $main::logger->notice($req->url);
+	my ($httpd, $req) = @_;
+	$main::logger->notice($req->url);
     },
 );
-$main::logger->notice("Listening on ".$httpd->host.":".$httpd->port."...");
+$main::logger->notice("listening on ".$httpd->host.":".$httpd->port."...");
 
-$main::logger->info("Enter event loop...");
+my $sonos = Net::UPnP::ControlPoint::SONOS->new();
+$sonos->search_async(iv => 3600, cb => sub {
+    $main::logger->notice("topology update");
+});
+
+$main::logger->info("enter event loop...");
 AnyEvent->condvar->recv;

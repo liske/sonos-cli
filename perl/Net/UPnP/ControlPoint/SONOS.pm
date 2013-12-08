@@ -24,6 +24,9 @@
 
 package Net::UPnP::ControlPoint::SONOS;
 
+use AnyEvent;
+use Socket;
+
 use strict;
 use warnings;
 use Carp;
@@ -61,19 +64,19 @@ sub new {
 
 sub search {
     my $self = shift;
-    $self->{_sonos}->{devices} = undef;
     $self->{_sonos}->{zones} = undef;
+    $self->{_sonos}->{groups} = undef;
 
-    my @devs = $self->SUPER::search(st => 'urn:schemas-upnp-org:device:ZonePlayer:1', mx => $self->{_sonos}->{search_timeout});
-    foreach my $dev (@devs) {
+    my @zps = $self->SUPER::search(st => 'urn:schemas-upnp-org:device:ZonePlayer:1', mx => $self->{_sonos}->{search_timeout});
+    foreach my $zp (@zps) {
 	my %services;
-	$services{(SONOS_SRV_AlarmClock)} = $dev->getservicebyname(SONOS_SRV_AlarmClock);
-	$services{(SONOS_SRV_DeviceProperties)} = $dev->getservicebyname(SONOS_SRV_DeviceProperties);
-	$services{(SONOS_SRV_AVTransport)} = $dev->getservicebyname(SONOS_SRV_AVTransport);
+	$services{(SONOS_SRV_AlarmClock)} = $zp->getservicebyname(SONOS_SRV_AlarmClock);
+	$services{(SONOS_SRV_DeviceProperties)} = $zp->getservicebyname(SONOS_SRV_DeviceProperties);
+	$services{(SONOS_SRV_AVTransport)} = $zp->getservicebyname(SONOS_SRV_AVTransport);
 
 
 	# GetZoneInfo (get MACAddress to build UDN)
-	# HACK: $dev->getudn() is broken, try to build the UDN
+	# HACK: $zp->getudn() is broken, try to build the UDN
 	#       from the MACAddress - this might fail :-(
 	my $aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneInfo');
 	if($aresp->getstatuscode != SONOS_STATUS_OK) {
@@ -85,9 +88,9 @@ sub search {
 	$UDN =~ s/://g;
 	$UDN = "RINCON_${UDN}01400";
 
-	$self->{_sonos}->{devices}->{$UDN}->{dev} = $dev;
-	$self->{_sonos}->{devices}->{$UDN}->{services} = \%services;
-	$self->{_sonos}->{devices}->{$UDN}->{ZoneInfo} = $ZoneInfo;
+	$self->{_sonos}->{zones}->{$UDN}->{zone} = $zp;
+	$self->{_sonos}->{zones}->{$UDN}->{services} = \%services;
+	$self->{_sonos}->{zones}->{$UDN}->{ZoneInfo} = $ZoneInfo;
 
 
 	# GetZoneAttributes (get zone name)
@@ -96,7 +99,7 @@ sub search {
 	    carp 'Got error code '.$aresp->getstatuscode;
 	    next;
 	}
-	$self->{_sonos}->{devices}->{$UDN}->{ZoneAttributes} = $aresp->getargumentlist;
+	$self->{_sonos}->{zones}->{$UDN}->{ZoneAttributes} = $aresp->getargumentlist;
 
 
 	my %aargs = (
@@ -109,7 +112,7 @@ sub search {
 	    carp 'Got error code '.$aresp->getstatuscode;
 	    next;
 	}
-	$self->{_sonos}->{devices}->{$UDN}->{PositionInfo} = $aresp->getargumentlist;
+	$self->{_sonos}->{zones}->{$UDN}->{PositionInfo} = $aresp->getargumentlist;
 
 
 	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
@@ -117,33 +120,135 @@ sub search {
 	    carp 'Got error code '.$aresp->getstatuscode;
 	    next;
 	}
-	$self->{_sonos}->{devices}->{$UDN}->{TransportInfo} = $aresp->getargumentlist;
+	$self->{_sonos}->{zones}->{$UDN}->{TransportInfo} = $aresp->getargumentlist;
 
-	if($self->{_sonos}->{devices}->{$UDN}->{PositionInfo}->{TrackURI} =~ /^x-rincon:(RINCON_[\dA-F]+)/) {
-	    push(@{$self->{_sonos}->{zones}->{$1}}, $UDN);
+	if($self->{_sonos}->{zones}->{$UDN}->{PositionInfo}->{TrackURI} =~ /^x-rincon:(RINCON_[\dA-F]+)/) {
+	    push(@{$self->{_sonos}->{groups}->{$1}}, $UDN);
 	}
 	else {
-	    push(@{$self->{_sonos}->{zones}->{$UDN}}, $UDN);
+	    push(@{$self->{_sonos}->{groups}->{$UDN}}, $UDN);
 	}
     }
 }
 
-sub getDevices {
+sub search_async {
     my $self = shift;
-    $self->search() unless(exists($self->{_sonos}->{devices}) && defined($self->{_sonos}->{devices}));
-
-    return ( ) unless(exists($self->{_sonos}->{devices}) && defined($self->{_sonos}->{devices}));
-
-    return %{$self->{_sonos}->{devices}};
+    my %args = (
+	iv => 0,
+	@_,
+	);
+    
+    $self->search_async_once(%args);
+    $self->{_sonos}->{search}->{iv} = AnyEvent->timer(
+	after => $args{iv},
+	interval => $args{iv},
+	cb => sub {
+	    $self->search_async_once(%args);
+	},
+    ) if($args{iv} > 0);
 }
+
+sub search_async_term {
+    my $self = shift;
+    $self->{_sonos}->{search}->{iv} = undef;
+}
+
+sub search_async_once {
+    my $self = shift;
+    my %args = (
+	st => 'urn:schemas-upnp-org:device:ZonePlayer:1',
+	mx => $self->{_sonos}->{search_timeout},
+	cb => undef,
+	@_,
+    );
+		
+my $ssdp_header = <<"SSDP_SEARCH_MSG";
+M-SEARCH * HTTP/1.1
+Host: $Net::UPnP::SSDP_ADDR:$Net::UPnP::SSDP_PORT
+Man: "ssdp:discover"
+ST: $args{st}
+MX: $args{mx}
+
+SSDP_SEARCH_MSG
+
+    $ssdp_header =~ s/\r//g;
+    $ssdp_header =~ s/\n/\r\n/g;
+
+    my $ssdp_sock;
+    socket($ssdp_sock, AF_INET, SOCK_DGRAM, getprotobyname('udp'));
+    my $ssdp_mcast = sockaddr_in($Net::UPnP::SSDP_PORT, inet_aton($Net::UPnP::SSDP_ADDR));
+
+    send($ssdp_sock, $ssdp_header, 0, $ssdp_mcast);
+
+    if ($Net::UPnP::DEBUG) {
+	print "$ssdp_header\n";
+    }
+
+    $self->{_sonos}->{search}->{io} = AnyEvent->io(fh => $ssdp_sock, poll => 'r', cb => sub {
+	my $ssdp_res_msg;
+	recv($ssdp_sock, $ssdp_res_msg, 4096, 0);
+	
+	print "$ssdp_res_msg" if ($Net::UPnP::DEBUG);
+	
+	unless ($ssdp_res_msg =~ m/LOCATION[ :]+(.*)\r/i) {
+	    return;
+	}		
+	my $dev_location = $1;
+	unless ($dev_location =~ m/http:\/\/([0-9a-z.]+)[:]*([0-9]*)\/(.*)/i) {
+	    return;
+	}
+	my $dev_addr = $1;
+	my $dev_port = $2;
+	my $dev_path = '/' . $3;
+	
+	my $http_req = Net::UPnP::HTTP->new();
+	my $post_res = $http_req->post($dev_addr, $dev_port, "GET", $dev_path, "", "");
+	
+	if ($Net::UPnP::DEBUG) {
+	    print $post_res->getstatus() . "\n";
+	    print $post_res->getheader() . "\n";
+	    print $post_res->getcontent() . "\n";
+	}
+ 
+	my $post_content = $post_res->getcontent();
+	
+	my $dev = Net::UPnP::Device->new();
+	$dev->setssdp($ssdp_res_msg);
+	$dev->setdescription($post_content);
+	
+	if ($Net::UPnP::DEBUG) {
+	    print "ssdp = $ssdp_res_msg\n";
+	    print "description = $post_content\n";
+	}
+
+	push(@{$self->{_sonos}->{search}->{devs}}, $dev);
+    });
+    $self->{_sonos}->{search}->{timer} = AnyEvent->timer(after => ($args{mx} + 1), cb => sub {
+	# drop watchers
+	$self->{_sonos}->{search}->{io} = undef;
+	$self->{_sonos}->{search}->{timer} = undef;
+
+	&{$args{cb}}($self->{_sonos}->{search}->{devs}) if(defined($args{cb}));
+    });
+}
+
 
 sub getZones {
     my $self = shift;
     $self->search() unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
-
+    
     return ( ) unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
 
     return %{$self->{_sonos}->{zones}};
+}
+
+sub getGroups {
+    my $self = shift;
+    $self->search() unless(exists($self->{_sonos}->{groups}) && defined($self->{_sonos}->{groups}));
+
+    return ( ) unless(exists($self->{_sonos}->{groups}) && defined($self->{_sonos}->{groups}));
+
+    return %{$self->{_sonos}->{groups}};
 }
 
 1;
