@@ -221,14 +221,81 @@ SSDP_SEARCH_MSG
 	    print "description = $post_content\n";
 	}
 
-	push(@{$self->{_sonos}->{search}->{devs}}, $dev);
+	push(@{$self->{_sonos}->{search}->{zps}}, $dev);
     });
     $self->{_sonos}->{search}->{timer} = AnyEvent->timer(after => ($args{mx} + 1), cb => sub {
 	# drop watchers
 	$self->{_sonos}->{search}->{io} = undef;
 	$self->{_sonos}->{search}->{timer} = undef;
 
-	&{$args{cb}}($self->{_sonos}->{search}->{devs}) if(defined($args{cb}));
+
+	$self->{_sonos}->{zones} = undef;
+	$self->{_sonos}->{groups} = undef;
+
+	foreach my $zp (@{$self->{_sonos}->{search}->{zps}}) {
+	    my %services;
+	    $services{(SONOS_SRV_AlarmClock)} = $zp->getservicebyname(SONOS_SRV_AlarmClock);
+	    $services{(SONOS_SRV_DeviceProperties)} = $zp->getservicebyname(SONOS_SRV_DeviceProperties);
+	    $services{(SONOS_SRV_AVTransport)} = $zp->getservicebyname(SONOS_SRV_AVTransport);
+
+
+	    # GetZoneInfo (get MACAddress to build UDN)
+	    # HACK: $zp->getudn() is broken, try to build the UDN
+	    #       from the MACAddress - this might fail :-(
+	    my $aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneInfo');
+	    if($aresp->getstatuscode != SONOS_STATUS_OK) {
+		carp 'Got error code '.$aresp->getstatuscode;
+		next;
+	    }
+	    my $ZoneInfo = $aresp->getargumentlist;
+	    my $UDN = $ZoneInfo->{MACAddress};
+	    $UDN =~ s/://g;
+	    $UDN = "RINCON_${UDN}01400";
+
+	    $self->{_sonos}->{zones}->{$UDN}->{zone} = $zp;
+	    $self->{_sonos}->{zones}->{$UDN}->{services} = \%services;
+	    $self->{_sonos}->{zones}->{$UDN}->{ZoneInfo} = $ZoneInfo;
+
+
+	    # GetZoneAttributes (get zone name)
+	    $aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneAttributes');
+	    if($aresp->getstatuscode != SONOS_STATUS_OK) {
+		carp 'Got error code '.$aresp->getstatuscode;
+		next;
+	    }
+	    $self->{_sonos}->{zones}->{$UDN}->{ZoneAttributes} = $aresp->getargumentlist;
+
+
+	    my %aargs = (
+		'InstanceID' => 0,
+	    );
+
+
+	    $aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetPositionInfo', \%aargs);
+	    if($aresp->getstatuscode != SONOS_STATUS_OK) {
+		carp 'Got error code '.$aresp->getstatuscode;
+		next;
+	    }
+	    $self->{_sonos}->{zones}->{$UDN}->{PositionInfo} = $aresp->getargumentlist;
+
+
+	    $aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
+	    if($aresp->getstatuscode != SONOS_STATUS_OK) {
+		carp 'Got error code '.$aresp->getstatuscode;
+		next;
+	    }
+	    $self->{_sonos}->{zones}->{$UDN}->{TransportInfo} = $aresp->getargumentlist;
+
+	    if($self->{_sonos}->{zones}->{$UDN}->{PositionInfo}->{TrackURI} =~ /^x-rincon:(RINCON_[\dA-F]+)/) {
+		push(@{$self->{_sonos}->{groups}->{$1}}, $UDN);
+	    }
+	    else {
+		push(@{$self->{_sonos}->{groups}->{$UDN}}, $UDN);
+	    }
+	}
+
+
+	&{$args{cb}}($self) if(defined($args{cb}));
     });
 }
 

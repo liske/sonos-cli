@@ -161,8 +161,13 @@ $httpd->reg_cb (
 $main::logger->notice("listening on ".$httpd->host.":".$httpd->port."...");
 
 my $sonos = Net::UPnP::ControlPoint::SONOS->new();
+my %groups;
+my %zones;
 $sonos->search_async(iv => 3600, cb => sub {
-    $main::logger->notice("topology update");
+    %groups = $sonos->getGroups();
+    %zones = $sonos->getZones();
+
+    $main::logger->notice("topology update, found ".(scalar keys %zones)." zones in ".(scalar keys %groups)." groups");
 });
 
 $main::logger->info("enter event loop...");
