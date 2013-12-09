@@ -163,7 +163,7 @@ $main::logger->notice("listening on ".$httpd->host.":".$httpd->port."...");
 my $sonos = Net::UPnP::ControlPoint::SONOS->new();
 my %groups;
 my %zones;
-$sonos->search_async(iv => 3600, cb => sub {
+$sonos->search_async(iv => 3600, ss => 'http://10.0.0.66:'.$httpd->port, cb => sub {
     %groups = $sonos->getGroups();
     %zones = $sonos->getZones();
 

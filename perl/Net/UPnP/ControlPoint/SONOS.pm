@@ -31,6 +31,8 @@ use strict;
 use warnings;
 use Carp;
 
+use Net::UPnP::ControlPoint::SONOS::ZonePlayer;
+
 use constant {
     SONOS_STATUS_OK => 200,
 
@@ -159,6 +161,7 @@ sub search_async_once {
 	st => 'urn:schemas-upnp-org:device:ZonePlayer:1',
 	mx => $self->{_sonos}->{search_timeout},
 	cb => undef,
+	ss => undef,
 	@_,
     );
 		
@@ -193,10 +196,12 @@ SSDP_SEARCH_MSG
 	unless ($ssdp_res_msg =~ m/LOCATION[ :]+(.*)\r/i) {
 	    return;
 	}		
+
 	my $dev_location = $1;
 	unless ($dev_location =~ m/http:\/\/([0-9a-z.]+)[:]*([0-9]*)\/(.*)/i) {
 	    return;
 	}
+
 	my $dev_addr = $1;
 	my $dev_port = $2;
 	my $dev_path = '/' . $3;
@@ -211,17 +216,42 @@ SSDP_SEARCH_MSG
 	}
  
 	my $post_content = $post_res->getcontent();
+	next unless($post_content =~ /<UDN>uuid:[^<]+(RINCON_[\dA-F]+)\W/s);
+	my $zpid = $1;
 	
 	my $dev = Net::UPnP::Device->new();
 	$dev->setssdp($ssdp_res_msg);
 	$dev->setdescription($post_content);
+
+	if($args{ss}) {
+	    $Net::UPnP::DEBUG++;
+
+	    foreach my $srv ($dev->getservicebyname(SONOS_SRV_AlarmClock), $dev->getservicebyname(SONOS_SRV_DeviceProperties), $dev->getservicebyname(SONOS_SRV_AVTransport)) {
+		my $ss_res = $http_req->post($dev_addr, $dev_port, "SUBSCRIBE", $srv->geteventsuburl, {
+		    NT => 'upnp:event',
+		    Callback => sprintf('<%s/ev/%s>', $args{ss}, $zpid),
+		    qq(User-Agent) => "$^O UPnP/1.1 sonos-cli/$VERSION",
+		    Timeout => 'Second-'.($args{mx} + $args{iv}),
+					     }, "");
+	
+		if ($Net::UPnP::DEBUG) {
+		    print $ss_res->getstatus() . "\n";
+		    print $ss_res->getheader() . "\n";
+		    print $ss_res->getcontent() . "\n";
+		}
+
+		$Net::UPnP::DEBUG = undef;
+	    }
+	}
+
+	my $zp = Net::UPnP::ControlPoint::SONOS::ZonePlayer->new($self, $dev);
 	
 	if ($Net::UPnP::DEBUG) {
 	    print "ssdp = $ssdp_res_msg\n";
 	    print "description = $post_content\n";
 	}
 
-	push(@{$self->{_sonos}->{search}->{zps}}, $dev);
+	$self->{_sonos}->{search}->{zps}->{$zpid} = $dev;
     });
     $self->{_sonos}->{search}->{timer} = AnyEvent->timer(after => ($args{mx} + 1), cb => sub {
 	# drop watchers
@@ -232,7 +262,7 @@ SSDP_SEARCH_MSG
 	$self->{_sonos}->{zones} = undef;
 	$self->{_sonos}->{groups} = undef;
 
-	foreach my $zp (@{$self->{_sonos}->{search}->{zps}}) {
+	foreach my $zp (()) { #@{$self->{_sonos}->{search}->{zps}}) {
 	    my %services;
 	    $services{(SONOS_SRV_AlarmClock)} = $zp->getservicebyname(SONOS_SRV_AlarmClock);
 	    $services{(SONOS_SRV_DeviceProperties)} = $zp->getservicebyname(SONOS_SRV_DeviceProperties);
