@@ -26,7 +26,7 @@
 
 use warnings;
 use strict;
-use Net::UPnP::ControlPoint::SONOS;
+use Net::UPnP::SONOS;
 use Getopt::Long;
 
 my $O_TIMEOUT = 3;
@@ -96,7 +96,7 @@ my %commands = (
     },
 );
 
-my $sonos = Net::UPnP::ControlPoint::SONOS->new();
+my $sonos = Net::UPnP::SONOS->new();
 my $cmd = ucfirst(lc($O_MODE));
 
 my %zones = $sonos->getZones();

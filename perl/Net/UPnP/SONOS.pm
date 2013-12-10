@@ -22,7 +22,7 @@
 #   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 #
 
-package Net::UPnP::ControlPoint::SONOS;
+package Net::UPnP::SONOS;
 
 use AnyEvent;
 use Socket;
@@ -31,7 +31,7 @@ use strict;
 use warnings;
 use Carp;
 
-use Net::UPnP::ControlPoint::SONOS::ZonePlayer;
+use Net::UPnP::SONOS::ZonePlayer;
 
 use constant {
     SONOS_STATUS_OK => 200,
@@ -244,7 +244,7 @@ SSDP_SEARCH_MSG
 	    }
 	}
 
-	my $zp = Net::UPnP::ControlPoint::SONOS::ZonePlayer->new($self, $dev);
+	my $zp = Net::UPnP::SONOS::ZonePlayer->new($self, $dev);
 	
 	if ($Net::UPnP::DEBUG) {
 	    print "ssdp = $ssdp_res_msg\n";
