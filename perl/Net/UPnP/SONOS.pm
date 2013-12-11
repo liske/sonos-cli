@@ -219,11 +219,16 @@ SSDP_SEARCH_MSG
 	next unless($post_content =~ /<UDN>uuid:[^<]+(RINCON_[\dA-F]+)\W/s);
 	my $zpid = $1;
 	
-	my $dev = Net::UPnP::Device->new();
+	my $dev = Net::UPnP::SONOS::ZonePlayer->new();
 	$dev->setssdp($ssdp_res_msg);
 	$dev->setdescription($post_content);
+	    $dev->subEvents($args{lsip}, 123, $args{lspath} || '');
+	if(exists($args{lsport})) {
+	    my $lspath = $args{lspath} || '';
+	    $lspath =~ s/^[\/]*(.+)[\/]*$/$1/;
 
-	if($args{ss}) {
+	    $dev->subEvents($args{lsip}, 123, $args{lspath} || '');
+
 	    $Net::UPnP::DEBUG++;
 
 	    foreach my $srv ($dev->getservicebyname(SONOS_SRV_AlarmClock), $dev->getservicebyname(SONOS_SRV_DeviceProperties), $dev->getservicebyname(SONOS_SRV_AVTransport)) {

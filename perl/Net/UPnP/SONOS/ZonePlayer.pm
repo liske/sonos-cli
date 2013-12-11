@@ -38,31 +38,85 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = '0.1.0';
+use Net::UPnP::Device;
+require Exporter;
+our @ISA = qw(Net::UPnP::Device Exporter);
 
 sub new {
-    my ($class, $cp, $zp) = @_;
-    my $self = { };
-
+    my ($class, $cp) = @_;
+    my $self = $class->SUPER::new();
 
     $self->{_zp_cp} = $cp;
-    $self->{_zp_dev} = $zp;
-
-    my $cb = sub {
-	my ($service, %properties) = @_;
-
-	print("Event received for service " . $service->serviceId . "\n");
-	while (my ($key, $val) = each %properties) {
-	    print("\tProperty ${key}'s value is " . $val . "\n");
-	}
-    };
-
-    $self->{_zp_services}->{(SONOS_SRV_AlarmClock)} = $zp->getservicebyname(SONOS_SRV_AlarmClock);
-    $self->{_zp_services}->{(SONOS_SRV_DeviceProperties)} = $zp->getservicebyname(SONOS_SRV_DeviceProperties);
-    $self->{_zp_services}->{(SONOS_SRV_AVTransport)} = $zp->getservicebyname(SONOS_SRV_AVTransport);
+    $self->{_sonos}->{search_timeout} = 3;
 
     bless $self, $class;
     return $self;
+}
+
+
+sub getDevIP {
+    my $self = shift;
+
+    my $loc = $self->getlocation();
+    $loc =~ /http:\/\/([0-9a-z.]+)[:]*([0-9]*)\//i;
+
+    return ($1, $2 || 1400);
+}
+
+sub getLocalIP {
+    my $self = shift;
+
+    return $self->{_zp_localip} if (exists($self->{_zp_localip}));
+
+    my $ip = '8.8.8.8';
+
+    my $loc = $self->getlocation();
+    $ip = $1 if($loc =~ /http:\/\/([0-9a-z.]+)[:]*([0-9]*)\//i);
+
+    use IO::Socket::INET;
+    my $sock = IO::Socket::INET->new(
+        Proto    => 'udp',
+        PeerAddr => $ip,
+        PeerPort => '53',
+    );
+
+    $self->{_zp_localip} = $sock->sockhost;
+
+    close($sock);
+
+    return $self->{_zp_localip};
+}
+
+sub getID($) {
+    my $self = shift;
+    
+    my $udn = $self->getudn();
+    print ">>$udn<<\n";
+    return $1 if ($udn =~ /<UDN>uuid:[^<]+(RINCON_[\dA-F]+)\W/s);
+}
+
+sub subEvents($$$$) {
+    my $self = shift;
+    my ($lsip, $lsport, $lspath) = @_;
+    $lspath =~ s/^[\/]*(.*)[\/]*$/$1/;
+
+    my $req = Net::UPnP::HTTP->new();
+    foreach my $srv ($self->getservicelist()) {
+	    $Net::UPnP::DEBUG++;
+	my $res = $req->post($self->getDevIP(), "SUBSCRIBE", $srv->geteventsuburl, {
+	    NT => 'upnp:event',
+	    Callback => sprintf('<http://%s:%d/%s%s>', $lsip || $self->getLocalIP(), $lsport, ($lspath ? "$lspath/" : ''), $self->getID()),
+	    qq(User-Agent) => "$^O UPnP/1.1 sonos-cli/$Net::UPnP::SONOS:VERSION",
+	    Timeout => 'Second-900',
+			     }, "");
+
+		    print $res->getstatus() . "\n";
+		    print $res->getheader() . "\n";
+		    print $res->getcontent() . "\n";
+
+
+    $Net::UPnP::DEBUG--;
+    }
 }
 
 sub avtPlay(;$) {
