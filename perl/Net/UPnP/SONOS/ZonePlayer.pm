@@ -87,35 +87,74 @@ sub getLocalIP {
     return $self->{_zp_localip};
 }
 
-sub getID($) {
+sub getUDN($) {
     my $self = shift;
-    
-    my $udn = $self->getudn();
-    print ">>$udn<<\n";
-    return $1 if ($udn =~ /<UDN>uuid:[^<]+(RINCON_[\dA-F]+)\W/s);
+
+    return "uuid:$1" if ($self->getdescription =~ /(RINCON_[\dA-F]+)/);
+
+    return undef;
+}
+
+sub getShortID($) {
+    my $self = shift;
+
+    my $id = $self->getUDN();
+    $id =~ s/^uuid:RINCON_//;
+    $id =~ s/01400$//;
+
+    return $id;
 }
 
 sub subEvents($$$$) {
     my $self = shift;
     my ($lsip, $lsport, $lspath) = @_;
     $lspath =~ s/^[\/]*(.*)[\/]*$/$1/;
-
+    
+    my $devid = $self->getShortID();
     my $req = Net::UPnP::HTTP->new();
     foreach my $srv ($self->getservicelist()) {
-	    $Net::UPnP::DEBUG++;
-	my $res = $req->post($self->getDevIP(), "SUBSCRIBE", $srv->geteventsuburl, {
-	    NT => 'upnp:event',
-	    Callback => sprintf('<http://%s:%d/%s%s>', $lsip || $self->getLocalIP(), $lsport, ($lspath ? "$lspath/" : ''), $self->getID()),
-	    qq(User-Agent) => "$^O UPnP/1.1 sonos-cli/$Net::UPnP::SONOS:VERSION",
-	    Timeout => 'Second-900',
-			     }, "");
-
-		    print $res->getstatus() . "\n";
-		    print $res->getheader() . "\n";
-		    print $res->getcontent() . "\n";
-
-
+	$Net::UPnP::DEBUG++;
+	
+	my $srvid = $srv->geteventsuburl;
+	my %params = (
+	    qq(User-Agent) => "$^O UPnP/1.1 sonos-cli/$Net::UPnP::SONOS::VERSION",
+	    TIMEOUT => 'Second-900',
+	    );
+	if(exists($self->{_zp_sub}->{sid}->{$srvid})) {
+	    $params{SID} = $self->{_zp_sub}->{sid}->{$srvid};
+	}
+	else {
+	    $params{NT} = 'upnp:event';
+	    $params{Callback} = sprintf('<http://%s:%d/%s%s>', $lsip || $self->getLocalIP(), $lsport, ($lspath ? "$lspath/" : ''), $devid);
+	}
+	
+	my $res = $req->post($self->getDevIP(), "SUBSCRIBE", $srv->geteventsuburl, \%params, "");
     $Net::UPnP::DEBUG--;
+
+	if($res->getstatuscode() == 200) {
+	    my $h = $res->getheader();
+	    
+	    # get parameters to refresh the subscription
+	    my $renew = 900;
+	    $h =~ /SID:\s+(.+)/; 
+	    $self->{_zp_sub}->{sid}->{$srvid} = $1;
+	    $renew = $1 if($h =~ /TIMEOUT:\s+Second-(.+)/);
+	    
+	    # refresh before timeout
+	    $renew *= 0.5;
+	    $self->{_zp_sub}->{w} = AnyEvent->timer(
+		after => $renew,
+		cb => sub {
+		    $self->subEvents($lsip, $lsport, $lspath);
+		},);
+	}
+	else {
+	    $self->{_zp_sub}->{w} = AnyEvent->timer(
+		after => 900,
+		cb => sub {
+		    $self->subEvents($lsip, $lsport, $lspath);
+		},);
+	}
     }
 }
 
