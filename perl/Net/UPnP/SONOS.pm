@@ -4,7 +4,7 @@
 #   Thomas Liske <thomas@fiasko-nw.net>
 #
 # Copyright Holder:
-#   2010 - 2012 (C) Thomas Liske [http://fiasko-nw.net/~thomas/]
+#   2010 - 2013 (C) Thomas Liske [http://fiasko-nw.net/~thomas/]
 #
 # License:
 #   This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,8 @@
 package Net::UPnP::SONOS;
 
 use AnyEvent;
+use AnyEvent::HTTPD;
+use Log::Any;
 use Socket;
 
 use strict;
@@ -58,6 +60,7 @@ sub new {
     my ($class) = @_;
     my $self = $class->SUPER::new();
 
+    $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{search_timeout} = 3;
 
     bless $self, $class;
@@ -139,7 +142,8 @@ sub search_async {
 	iv => 0,
 	@_,
 	);
-    
+
+    $self->{_sonos}->{logger}->debug("search_async(iv = %ds", $args{iv});
     $self->search_async_once(%args);
     $self->{_sonos}->{search}->{iv} = AnyEvent->timer(
 	after => $args{iv},
@@ -152,6 +156,8 @@ sub search_async {
 
 sub search_async_term {
     my $self = shift;
+
+    $self->{_sonos}->{logger}->debug("terminating search_async");
     $self->{_sonos}->{search}->{iv} = undef;
 }
 
@@ -165,6 +171,8 @@ sub search_async_once {
 	@_,
     );
 		
+    $self->{_sonos}->{logger}->debug("begin async search...");
+
 my $ssdp_header = <<"SSDP_SEARCH_MSG";
 M-SEARCH * HTTP/1.1
 Host: $Net::UPnP::SSDP_ADDR:$Net::UPnP::SSDP_PORT
@@ -183,10 +191,6 @@ SSDP_SEARCH_MSG
 
     send($ssdp_sock, $ssdp_header, 0, $ssdp_mcast);
 
-    if ($Net::UPnP::DEBUG) {
-	print "$ssdp_header\n";
-    }
-
     $self->{_sonos}->{search}->{io} = AnyEvent->io(fh => $ssdp_sock, poll => 'r', cb => sub {
 	my $ssdp_res_msg;
 	recv($ssdp_sock, $ssdp_res_msg, 4096, 0);
@@ -194,11 +198,13 @@ SSDP_SEARCH_MSG
 	print "$ssdp_res_msg" if ($Net::UPnP::DEBUG);
 	
 	unless ($ssdp_res_msg =~ m/LOCATION[ :]+(.*)\r/i) {
+	    $self->{_sonos}->{logger}->info("ignore response missing LOCATION header");
 	    return;
 	}		
 
 	my $dev_location = $1;
 	unless ($dev_location =~ m/http:\/\/([0-9a-z.]+)[:]*([0-9]*)\/(.*)/i) {
+	    $self->{_sonos}->{logger}->info("ignore response due failing to extract location");
 	    return;
 	}
 
@@ -209,56 +215,23 @@ SSDP_SEARCH_MSG
 	my $http_req = Net::UPnP::HTTP->new();
 	my $post_res = $http_req->post($dev_addr, $dev_port, "GET", $dev_path, "", "");
 	
-	if ($Net::UPnP::DEBUG) {
-	    print $post_res->getstatus() . "\n";
-	    print $post_res->getheader() . "\n";
-	    print $post_res->getcontent() . "\n";
-	}
- 
 	my $post_content = $post_res->getcontent();
-	next unless($post_content =~ /<UDN>uuid:[^<]+(RINCON_[\dA-F]+)\W/s);
-	my $zpid = $1;
+	unless($post_content =~ /<UDN>uuid:[^<]+(RINCON_[\dA-F]+)\W/s) {
+	    $self->{_sonos}->{logger}->info("ignore response due failing to extract UDN");
+	    return
+	}
+	my $zpid = Net::UPnP::SONOS::ZonePlayer::UDN2ShortID("uuid:$1");
 	
-	my $dev = Net::UPnP::SONOS::ZonePlayer->new();
+	my $dev = ( exists($self->{_sonos}->{search}->{zps}->{$zpid}) ? $self->{_sonos}->{search}->{zps}->{$zpid} : Net::UPnP::SONOS::ZonePlayer->new() );
 	$dev->setssdp($ssdp_res_msg);
 	$dev->setdescription($post_content);
-	    $dev->subEvents($args{lsip}, 123, $args{lspath} || '');
-	if(exists($args{lsport})) {
-	    my $lspath = $args{lspath} || '';
-	    $lspath =~ s/^[\/]*(.+)[\/]*$/$1/;
-
-	    $dev->subEvents($args{lsip}, 123, $args{lspath} || '');
-
-	    $Net::UPnP::DEBUG++;
-
-	    foreach my $srv ($dev->getservicebyname(SONOS_SRV_AlarmClock), $dev->getservicebyname(SONOS_SRV_DeviceProperties), $dev->getservicebyname(SONOS_SRV_AVTransport)) {
-		my $ss_res = $http_req->post($dev_addr, $dev_port, "SUBSCRIBE", $srv->geteventsuburl, {
-		    NT => 'upnp:event',
-		    Callback => sprintf('<%s/ev/%s>', $args{ss}, $zpid),
-		    qq(User-Agent) => "$^O UPnP/1.1 sonos-cli/$VERSION",
-		    Timeout => 'Second-'.($args{mx} + $args{iv}),
-					     }, "");
-	
-		if ($Net::UPnP::DEBUG) {
-		    print $ss_res->getstatus() . "\n";
-		    print $ss_res->getheader() . "\n";
-		    print $ss_res->getcontent() . "\n";
-		}
-
-		$Net::UPnP::DEBUG = undef;
-	    }
-	}
-
-	my $zp = Net::UPnP::SONOS::ZonePlayer->new($self, $dev);
-	
-	if ($Net::UPnP::DEBUG) {
-	    print "ssdp = $ssdp_res_msg\n";
-	    print "description = $post_content\n";
-	}
+	$dev->subEvents($args{lsip}, 123, $args{lspath} || '');
 
 	$self->{_sonos}->{search}->{zps}->{$zpid} = $dev;
     });
     $self->{_sonos}->{search}->{timer} = AnyEvent->timer(after => ($args{mx} + 1), cb => sub {
+	$self->{_sonos}->{logger}->info("finished async search");
+
 	# drop watchers
 	$self->{_sonos}->{search}->{io} = undef;
 	$self->{_sonos}->{search}->{timer} = undef;
@@ -328,7 +301,6 @@ SSDP_SEARCH_MSG
 		push(@{$self->{_sonos}->{groups}->{$UDN}}, $UDN);
 	    }
 	}
-
 
 	&{$args{cb}}($self) if(defined($args{cb}));
     });

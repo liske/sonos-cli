@@ -95,14 +95,19 @@ sub getUDN($) {
     return undef;
 }
 
+sub UDN2ShortID($) {
+    my $UDN = shift;
+
+    $UDN =~ s/^uuid:RINCON_//;
+    $UDN =~ s/01400$//;
+
+    return $UDN;
+}
+
 sub getShortID($) {
     my $self = shift;
 
-    my $id = $self->getUDN();
-    $id =~ s/^uuid:RINCON_//;
-    $id =~ s/01400$//;
-
-    return $id;
+    return UDN2ShortID( $self->getUDN() );
 }
 
 sub subEvents($$$$) {
