@@ -43,10 +43,10 @@ require Exporter;
 our @ISA = qw(Net::UPnP::Device Exporter);
 
 sub new {
-    my ($class, $cp) = @_;
+    my ($class, $httpd) = @_;
     my $self = $class->SUPER::new();
 
-    $self->{_zp_cp} = $cp;
+    $self->{_sonos}->{httpd} = $httpd;
     $self->{_sonos}->{search_timeout} = 3;
 
     bless $self, $class;
@@ -110,10 +110,11 @@ sub getShortID($) {
     return UDN2ShortID( $self->getUDN() );
 }
 
-sub subEvents($$$$) {
+sub subEvents($$) {
     my $self = shift;
-    my ($lsip, $lsport, $lspath) = @_;
-    $lspath =~ s/^[\/]*(.*)[\/]*$/$1/;
+
+    my $lsip = $self->{_sonos}->{httpd}->host;
+    $lsip = $self->getLocalIP() if($lsip eq '0.0.0.0');
     
     my $devid = $self->getShortID();
     my $req = Net::UPnP::HTTP->new();
@@ -130,7 +131,7 @@ sub subEvents($$$$) {
 	}
 	else {
 	    $params{NT} = 'upnp:event';
-	    $params{Callback} = sprintf('<http://%s:%d/%s%s>', $lsip || $self->getLocalIP(), $lsport, ($lspath ? "$lspath/" : ''), $devid);
+	    $params{Callback} = sprintf('<http://%s:%d/%s>', $lsip, $self->{_sonos}->{httpd}->port, $devid);
 	}
 	
 	my $res = $req->post($self->getDevIP(), "SUBSCRIBE", $srv->geteventsuburl, \%params, "");
@@ -150,14 +151,14 @@ sub subEvents($$$$) {
 	    $self->{_zp_sub}->{w} = AnyEvent->timer(
 		after => $renew,
 		cb => sub {
-		    $self->subEvents($lsip, $lsport, $lspath);
+		    $self->subEvents($self->{_sonos}->{httpd});
 		},);
 	}
 	else {
 	    $self->{_zp_sub}->{w} = AnyEvent->timer(
 		after => 900,
 		cb => sub {
-		    $self->subEvents($lsip, $lsport, $lspath);
+		    $self->subEvents($self->{_sonos}->{httpd});
 		},);
 	}
     }

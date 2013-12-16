@@ -62,78 +62,23 @@ sub new {
 
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{search_timeout} = 3;
+    $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new();
+    $self->{_sonos}->{httpd}->reg_cb (
+	request => sub {
+	    my ($httpd, $req) = @_;
+	    $self->{_sonos}->{logger}->notice($req->url);
+	},);
+    $self->{_sonos}->{logger}->notice("listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
 
     bless $self, $class;
     return $self;
 }
 
-sub search {
+
+sub search_async {
     my $self = shift;
-    $self->{_sonos}->{zones} = undef;
-    $self->{_sonos}->{groups} = undef;
 
-    my @zps = $self->SUPER::search(st => 'urn:schemas-upnp-org:device:ZonePlayer:1', mx => $self->{_sonos}->{search_timeout});
-    foreach my $zp (@zps) {
-	my %services;
-	$services{(SONOS_SRV_AlarmClock)} = $zp->getservicebyname(SONOS_SRV_AlarmClock);
-	$services{(SONOS_SRV_DeviceProperties)} = $zp->getservicebyname(SONOS_SRV_DeviceProperties);
-	$services{(SONOS_SRV_AVTransport)} = $zp->getservicebyname(SONOS_SRV_AVTransport);
-
-
-	# GetZoneInfo (get MACAddress to build UDN)
-	# HACK: $zp->getudn() is broken, try to build the UDN
-	#       from the MACAddress - this might fail :-(
-	my $aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneInfo');
-	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    carp 'Got error code '.$aresp->getstatuscode;
-	    next;
-	}
-	my $ZoneInfo = $aresp->getargumentlist;
-	my $UDN = $ZoneInfo->{MACAddress};
-	$UDN =~ s/://g;
-	$UDN = "RINCON_${UDN}01400";
-
-	$self->{_sonos}->{zones}->{$UDN}->{zone} = $zp;
-	$self->{_sonos}->{zones}->{$UDN}->{services} = \%services;
-	$self->{_sonos}->{zones}->{$UDN}->{ZoneInfo} = $ZoneInfo;
-
-
-	# GetZoneAttributes (get zone name)
-	$aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneAttributes');
-	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    carp 'Got error code '.$aresp->getstatuscode;
-	    next;
-	}
-	$self->{_sonos}->{zones}->{$UDN}->{ZoneAttributes} = $aresp->getargumentlist;
-
-
-	my %aargs = (
-	    'InstanceID' => 0,
-	);
-
-
-	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetPositionInfo', \%aargs);
-	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    carp 'Got error code '.$aresp->getstatuscode;
-	    next;
-	}
-	$self->{_sonos}->{zones}->{$UDN}->{PositionInfo} = $aresp->getargumentlist;
-
-
-	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
-	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    carp 'Got error code '.$aresp->getstatuscode;
-	    next;
-	}
-	$self->{_sonos}->{zones}->{$UDN}->{TransportInfo} = $aresp->getargumentlist;
-
-	if($self->{_sonos}->{zones}->{$UDN}->{PositionInfo}->{TrackURI} =~ /^x-rincon:(RINCON_[\dA-F]+)/) {
-	    push(@{$self->{_sonos}->{groups}->{$1}}, $UDN);
-	}
-	else {
-	    push(@{$self->{_sonos}->{groups}->{$UDN}}, $UDN);
-	}
-    }
+    die "Sorry, only supporting to search asynchronously!\n";
 }
 
 sub search_async {
@@ -222,10 +167,10 @@ SSDP_SEARCH_MSG
 	}
 	my $zpid = Net::UPnP::SONOS::ZonePlayer::UDN2ShortID("uuid:$1");
 	
-	my $dev = ( exists($self->{_sonos}->{search}->{zps}->{$zpid}) ? $self->{_sonos}->{search}->{zps}->{$zpid} : Net::UPnP::SONOS::ZonePlayer->new() );
+	my $dev = ( exists($self->{_sonos}->{search}->{zps}->{$zpid}) ? $self->{_sonos}->{search}->{zps}->{$zpid} : Net::UPnP::SONOS::ZonePlayer->new( $self->{_sonos}->{httpd} ) );
 	$dev->setssdp($ssdp_res_msg);
 	$dev->setdescription($post_content);
-	$dev->subEvents($args{lsip}, 123, $args{lspath} || '');
+	$dev->subEvents($self->{_sonos}->{httpd});
 
 	$self->{_sonos}->{search}->{zps}->{$zpid} = $dev;
     });
