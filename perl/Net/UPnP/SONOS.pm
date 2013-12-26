@@ -207,13 +207,12 @@ SSDP_SEARCH_MSG
     my $ssdp_sock;
     socket($ssdp_sock, AF_INET, SOCK_DGRAM, getprotobyname('udp'));
     my $ssdp_mcast = sockaddr_in($Net::UPnP::SSDP_PORT, inet_aton($Net::UPnP::SSDP_ADDR));
-
     send($ssdp_sock, $ssdp_header, 0, $ssdp_mcast);
 
     $self->{_sonos}->{search}->{io} = AnyEvent->io(fh => $ssdp_sock, poll => 'r', cb => sub {
 	my $ssdp_res_msg;
 	recv($ssdp_sock, $ssdp_res_msg, 4096, 0);
-	
+
 	print "$ssdp_res_msg" if ($Net::UPnP::DEBUG);
 	
 	unless ($ssdp_res_msg =~ m/LOCATION[ :]+(.*)\r/i) {
@@ -235,7 +234,8 @@ SSDP_SEARCH_MSG
 	my $post_res = $http_req->post($dev_addr, $dev_port, "GET", $dev_path, "", "");
 	
 	my $post_content = $post_res->getcontent();
-	unless($post_content =~ /<UDN>uuid:[^<]+(RINCON_[\dA-F]+)\W/s) {
+	unless($post_content =~ /<UDN>uuid:(RINCON_[\dA-F]+)\W/s) {
+	    print "$post_content\n";
 	    $self->{_sonos}->{logger}->info("ignore response due failing to extract UDN");
 	    return
 	}

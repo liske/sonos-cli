@@ -136,7 +136,7 @@ sub subEvents($) {
 	
 	my $res = $req->post($self->getDevIP(), "SUBSCRIBE", $srv->geteventsuburl, \%params, "");
 	if($res->getstatuscode() == 200) {
-	    $self->{_sonos}->{logger}->info('subscribed to ', $srv->getserviceid(), ' on  ', $self->getShortID());
+	    $self->{_sonos}->{logger}->info('subscribed to ', $srv->getserviceid(), ' on ', $self->getShortID());
 
 	    my $h = $res->getheader();
     
