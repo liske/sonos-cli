@@ -62,15 +62,24 @@ sub new {
 
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{search_timeout} = 3;
+    $self->{_sonos}->{sid2dev} = { };
     $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new(allowed_methods => [qw(NOTIFY)]);
     $self->{_sonos}->{httpd}->reg_cb (
 	request => sub {
 	    my ($httpd, $req) = @_;
+	    my $headers = $req->headers;
+	    my $sid = (exists($headers->{sid}) ? $headers->{sid} : '');
 
-	    $self->{_sonos}->{logger}->notice($req->url);
-	    $self->{_sonos}->{logger}->notice($req->content);
+	    unless(exists($self->{_sonos}->{sid2dev}->{$sid})) {
+		my $msg = "rejecting unknown subscription '$sid'";
+		$self->{_sonos}->{logger}->notice($msg);
+		$req->respond([412, 'Precondition Failed', { 'Content-Type' => 'text/plain' }, $msg]);
 
+		return;
+	    }
 	    $req->respond();
+
+	    $self->{_sonos}->{sid2dev}->{$sid}->handleNotify($req->content);
 	},);
     $self->{_sonos}->{logger}->notice("listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
 
@@ -232,7 +241,7 @@ SSDP_SEARCH_MSG
 	}
 	my $zpid = Net::UPnP::SONOS::ZonePlayer::UDN2ShortID("uuid:$1");
 	
-	my $dev = ( exists($self->{_sonos}->{search}->{zps}->{$zpid}) ? $self->{_sonos}->{search}->{zps}->{$zpid} : Net::UPnP::SONOS::ZonePlayer->new( $self->{_sonos}->{httpd} ) );
+	my $dev = ( exists($self->{_sonos}->{search}->{zps}->{$zpid}) ? $self->{_sonos}->{search}->{zps}->{$zpid} : Net::UPnP::SONOS::ZonePlayer->new($self, $self->{_sonos}->{httpd} ) );
 	$dev->setssdp($ssdp_res_msg);
 	$dev->setdescription($post_content);
 	$dev->subEvents($self->{_sonos}->{httpd});
@@ -298,6 +307,11 @@ SSDP_SEARCH_MSG
     });
 }
 
+sub regSrvSubs($$$) {
+    my ($self, $sid, $dev) = @_;
+
+    $self->{_sonos}->{sid2dev}->{$sid} = $dev;
+};
 
 sub getZones {
     my $self = shift;

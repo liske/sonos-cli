@@ -43,10 +43,11 @@ use Net::UPnP::Device;
 require Exporter;
 our @ISA = qw(Net::UPnP::Device Exporter);
 
-sub new {
-    my ($class, $httpd) = @_;
+sub new($$) {
+    my ($class, $sonos, $httpd) = @_;
     my $self = $class->SUPER::new();
 
+    $self->{_sonos}->{sonos} = $sonos;
     $self->{_sonos}->{httpd} = $httpd;
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{refresh} = 900;
@@ -112,13 +113,12 @@ sub getShortID($) {
     return UDN2ShortID( $self->getUDN() );
 }
 
-sub subEvents($$) {
+sub subEvents($) {
     my $self = shift;
 
     my $lsip = $self->{_sonos}->{httpd}->host;
     $lsip = $self->getLocalIP() if($lsip eq '0.0.0.0');
     
-    my $devid = $self->getShortID();
     my $req = Net::UPnP::HTTP->new();
     foreach my $srv ($self->getservicelist()) {
 	my $srvid = $srv->geteventsuburl;
@@ -131,7 +131,7 @@ sub subEvents($$) {
 	}
 	else {
 	    $params{NT} = 'upnp:event';
-	    $params{Callback} = sprintf('<http://%s:%d/%s>', $lsip, $self->{_sonos}->{httpd}->port, $devid);
+	    $params{Callback} = sprintf('<http://%s:%d/>', $lsip, $self->{_sonos}->{httpd}->port);
 	}
 	
 	my $res = $req->post($self->getDevIP(), "SUBSCRIBE", $srv->geteventsuburl, \%params, "");
@@ -139,12 +139,17 @@ sub subEvents($$) {
 	    $self->{_sonos}->{logger}->info('subscribed to ', $srv->getserviceid(), ' on  ', $self->getShortID());
 
 	    my $h = $res->getheader();
-	    
+    
 	    # get parameters to refresh the subscription
 	    my $renew = $self->{_sonos}->{refresh};
-	    $h =~ /SID:\s+(.+)/; 
-	    $self->{_zp_sub}->{sid}->{$srvid} = $1;
+	    $h =~ /SID:\s+([\S]+)/; 
+	    my $sid = $1;
+
+	    $self->{_zp_sub}->{sid}->{$srvid} = $sid;
 	    $renew = $1 if($h =~ /TIMEOUT:\s+Second-(.+)/);
+
+	    # register callback
+	    $self->{_sonos}->{sonos}->regSrvSubs($sid, $self);
 	    
 	    # refresh before timeout
 	    $renew *= 0.5;
@@ -163,6 +168,10 @@ sub subEvents($$) {
 		},);
 	}
     }
+}
+
+sub handleNotify($$$) {
+    my ($self, $sid, $content) = shift;
 }
 
 sub avtPlay(;$) {
