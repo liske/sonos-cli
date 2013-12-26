@@ -29,6 +29,7 @@ use AnyEvent::HTTPD;
 use Getopt::Std;
 use MIME::Base64;
 use YAML;
+use Log::Any::Adapter;
 use Log::Dispatch;
 use Log::Dispatch::Screen;
 use Log::Dispatch::Syslog;
@@ -74,6 +75,7 @@ $main::logger->add(
 	facility => 'daemon',
     )
 ) unless($opt_f);
+Log::Any::Adapter->set('Dispatch', dispatcher => $main::logger);
 
 sub WARN_handler {
     my($signal) = @_;
@@ -151,19 +153,10 @@ unless($opt_f) {
 }
 
 
-my $httpd = AnyEvent::HTTPD->new();
-$httpd->reg_cb (
-    request => sub {
-	my ($httpd, $req) = @_;
-	$main::logger->notice($req->url);
-    },
-);
-$main::logger->notice("listening on ".$httpd->host.":".$httpd->port."...");
-
 my $sonos = Net::UPnP::SONOS->new();
 my %groups;
 my %zones;
-$sonos->search_async(iv => 3600, ss => 'http://10.0.0.66:'.$httpd->port, cb => sub {
+$sonos->search_async(iv => 3600, cb => sub {
     %groups = $sonos->getGroups();
     %zones = $sonos->getZones();
 

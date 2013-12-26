@@ -65,6 +65,7 @@ sub new {
     $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new();
     $self->{_sonos}->{httpd}->reg_cb (
 	request => sub {
+	    $self->{_sonos}->{logger}->notice(".");
 	    my ($httpd, $req) = @_;
 	    $self->{_sonos}->{logger}->notice($req->url);
 	},);
@@ -174,7 +175,6 @@ sub search_async_once {
 	st => 'urn:schemas-upnp-org:device:ZonePlayer:1',
 	mx => $self->{_sonos}->{search_timeout},
 	cb => undef,
-	ss => undef,
 	@_,
     );
 		

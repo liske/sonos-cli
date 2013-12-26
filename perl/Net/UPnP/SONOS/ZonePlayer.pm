@@ -25,6 +25,7 @@
 package Net::UPnP::SONOS::ZonePlayer;
 
 use Net::UPnP::SONOS;
+use Log::Any;
 
 use constant {
     SONOS_STATUS_OK => 200,
@@ -47,8 +48,9 @@ sub new {
     my $self = $class->SUPER::new();
 
     $self->{_sonos}->{httpd} = $httpd;
-    $self->{_sonos}->{search_timeout} = 3;
-
+    $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
+    $self->{_sonos}->{refresh} = 900;
+    
     bless $self, $class;
     return $self;
 }
@@ -119,12 +121,10 @@ sub subEvents($$) {
     my $devid = $self->getShortID();
     my $req = Net::UPnP::HTTP->new();
     foreach my $srv ($self->getservicelist()) {
-	$Net::UPnP::DEBUG++;
-	
 	my $srvid = $srv->geteventsuburl;
 	my %params = (
 	    qq(User-Agent) => "$^O UPnP/1.1 sonos-cli/$Net::UPnP::SONOS::VERSION",
-	    TIMEOUT => 'Second-900',
+	    TIMEOUT => 'Second-'.$self->{_sonos}->{refresh},
 	    );
 	if(exists($self->{_zp_sub}->{sid}->{$srvid})) {
 	    $params{SID} = $self->{_zp_sub}->{sid}->{$srvid};
@@ -135,13 +135,13 @@ sub subEvents($$) {
 	}
 	
 	my $res = $req->post($self->getDevIP(), "SUBSCRIBE", $srv->geteventsuburl, \%params, "");
-    $Net::UPnP::DEBUG--;
-
 	if($res->getstatuscode() == 200) {
+	    $self->{_sonos}->{logger}->info('subscribed to ', $srv->getserviceid(), ' on  ', $self->getShortID());
+
 	    my $h = $res->getheader();
 	    
 	    # get parameters to refresh the subscription
-	    my $renew = 900;
+	    my $renew = $self->{_sonos}->{refresh};
 	    $h =~ /SID:\s+(.+)/; 
 	    $self->{_zp_sub}->{sid}->{$srvid} = $1;
 	    $renew = $1 if($h =~ /TIMEOUT:\s+Second-(.+)/);
@@ -155,8 +155,9 @@ sub subEvents($$) {
 		},);
 	}
 	else {
+	    $self->{_sonos}->{logger}->notice('subscribing to ', $srv->getserviceid(), ' on ', $self->getShortID(), 'failed');
 	    $self->{_zp_sub}->{w} = AnyEvent->timer(
-		after => 900,
+		after => $self->{_sonos}->{refresh}*0.5,
 		cb => sub {
 		    $self->subEvents($self->{_sonos}->{httpd});
 		},);
