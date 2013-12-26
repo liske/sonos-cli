@@ -62,12 +62,15 @@ sub new {
 
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{search_timeout} = 3;
-    $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new();
+    $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new(allowed_methods => [qw(NOTIFY)]);
     $self->{_sonos}->{httpd}->reg_cb (
 	request => sub {
-	    $self->{_sonos}->{logger}->notice(".");
 	    my ($httpd, $req) = @_;
+
 	    $self->{_sonos}->{logger}->notice($req->url);
+	    $self->{_sonos}->{logger}->notice($req->content);
+
+	    $req->respond();
 	},);
     $self->{_sonos}->{logger}->notice("listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
 
