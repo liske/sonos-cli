@@ -79,7 +79,7 @@ sub new {
 	    }
 	    $req->respond();
 
-	    $self->{_sonos}->{sid2dev}->{$sid}->handleNotify($req->content);
+	    $self->{_sonos}->{sid2dev}->{$sid}->handleNotify($sid, $req->content);
 	},);
     $self->{_sonos}->{logger}->notice("listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
 

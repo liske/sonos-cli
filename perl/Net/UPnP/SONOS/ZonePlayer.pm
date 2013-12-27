@@ -51,6 +51,7 @@ sub new($$) {
     $self->{_sonos}->{httpd} = $httpd;
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{refresh} = 900;
+    $self->{_sonos}->{properties} = { };
     
     bless $self, $class;
     return $self;
@@ -126,8 +127,8 @@ sub subEvents($) {
 	    qq(User-Agent) => "$^O UPnP/1.1 sonos-cli/$Net::UPnP::SONOS::VERSION",
 	    TIMEOUT => 'Second-'.$self->{_sonos}->{refresh},
 	    );
-	if(exists($self->{_zp_sub}->{sid}->{$srvid})) {
-	    $params{SID} = $self->{_zp_sub}->{sid}->{$srvid};
+	if(exists($self->{_zp_sub}->{srvid}->{$srvid})) {
+	    $params{SID} = $self->{_zp_sub}->{srvid}->{$srvid};
 	}
 	else {
 	    $params{NT} = 'upnp:event';
@@ -145,7 +146,7 @@ sub subEvents($) {
 	    $h =~ /SID:\s+([\S]+)/; 
 	    my $sid = $1;
 
-	    $self->{_zp_sub}->{sid}->{$srvid} = $sid;
+	    $self->{_zp_sub}->{srvid}->{$srvid} = $sid;
 	    $renew = $1 if($h =~ /TIMEOUT:\s+Second-(.+)/);
 
 	    # register callback
@@ -171,7 +172,29 @@ sub subEvents($) {
 }
 
 sub handleNotify($$$) {
-    my ($self, $sid, $content) = shift;
+    my ($self, $sid, $content) = @_;
+
+    while($content =~ s@<e:property><([^>]+?)>(.*?)</\1></e:property>@@si) {
+	my ($k, $v) = ($1, $2);
+	$v =~ s/\&gt;/>/g;
+	$v =~ s/\&lt;/</g;
+	$v =~ s/\&quot;/\"/g;
+	$v =~ s/\&amp;/\&/g;
+	$self->updateProperty($k, $v);
+    }
+}
+
+sub updateProperty($$$) {
+    my ($self, $k, $v) = @_;
+
+    if(exists($self->{_sonos}->{properties}->{$k})) {
+	if($self->{_sonos}->{properties}->{$k} ne $v) {
+	    $self->{_sonos}->{properties}->{$k} = $v;
+	}
+    }
+    else {
+	$self->{_sonos}->{properties}->{$k} = $v;
+    }
 }
 
 sub avtPlay(;$) {
