@@ -136,7 +136,7 @@ sub subEvents($) {
 	
 	my $res = $req->post($self->getDevIP(), "SUBSCRIBE", $srv->geteventsuburl, \%params, "");
 	if($res->getstatuscode() == 200) {
-	    $self->{_sonos}->{logger}->info('subscribed to ', $srv->getserviceid(), ' on ', $self->getShortID());
+	    $self->{_sonos}->{logger}->info('subscribed to', $srv->getserviceid(), 'on', $self->getShortID());
 
 	    my $h = $res->getheader();
     
@@ -160,7 +160,7 @@ sub subEvents($) {
 		},);
 	}
 	else {
-	    $self->{_sonos}->{logger}->notice('subscribing to ', $srv->getserviceid(), ' on ', $self->getShortID(), 'failed');
+	    $self->{_sonos}->{logger}->notice('subscribing to', $srv->getserviceid(), 'on', $self->getShortID(), 'failed');
 	    $self->{_zp_sub}->{w} = AnyEvent->timer(
 		after => $self->{_sonos}->{refresh}*0.5,
 		cb => sub {
