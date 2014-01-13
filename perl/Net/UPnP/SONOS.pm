@@ -77,7 +77,7 @@ sub new {
 
 		return;
 	    }
-	    $req->respond();
+	    $req->respond([200, 'OK', { 'Content-Type' => 'text/plain' }, 'OK']);
 
 	    $self->{_sonos}->{sid2dev}->{$sid}->handleNotify($sid, $req->content);
 	},);
