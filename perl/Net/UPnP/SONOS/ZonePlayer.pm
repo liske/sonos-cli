@@ -25,6 +25,7 @@
 package Net::UPnP::SONOS::ZonePlayer;
 
 use Net::UPnP::SONOS;
+use Net::UPnP::SONOS::Properties qw(:keys);
 use Log::Any;
 
 use constant {
@@ -180,6 +181,7 @@ sub handleNotify($$$) {
 	$v =~ s/\&lt;/</g;
 	$v =~ s/\&quot;/\"/g;
 	$v =~ s/\&amp;/\&/g;
+
 	$self->updateProperty($k, $v);
     }
 }
@@ -195,6 +197,15 @@ sub updateProperty($$$) {
     else {
 	$self->{_sonos}->{properties}->{$k} = $v;
     }
+}
+
+sub getProperty($$) {
+    my ($self, $k) = @_;
+
+    return $self->{_sonos}->{properties}->{$k}
+    if(exists($self->{_sonos}->{properties}->{$k}));
+
+    return undef;
 }
 
 sub avtPlay(;$) {

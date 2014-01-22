@@ -33,6 +33,7 @@ use strict;
 use warnings;
 use Carp;
 
+use Net::UPnP::SONOS::Properties qw(:keys);
 use Net::UPnP::SONOS::ZonePlayer;
 
 use constant {
@@ -146,13 +147,6 @@ sub search {
 	    next;
 	}
 	$self->{_sonos}->{zones}->{$UDN}->{TransportInfo} = $aresp->getargumentlist;
-	
-	if($self->{_sonos}->{zones}->{$UDN}->{PositionInfo}->{TrackURI} =~ /^x-rincon:(RINCON_[\dA-F]+)/) {
-	    push(@{$self->{_sonos}->{groups}->{$1}}, $UDN);
-	}
-	else {
-	    push(@{$self->{_sonos}->{groups}->{$UDN}}, $UDN);
-	}
     }
 }
 
@@ -324,11 +318,25 @@ sub getZones {
 
 sub getGroups {
     my $self = shift;
-    $self->search() unless(exists($self->{_sonos}->{groups}) && defined($self->{_sonos}->{groups}));
+    $self->search() unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
+    
+    return ( ) unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
 
-    return ( ) unless(exists($self->{_sonos}->{groups}) && defined($self->{_sonos}->{groups}));
+    my %groups;
+    foreach my $zpid (keys %{$self->{_sonos}->{search}->{zps}}) {
+	my $dev = $self->{_sonos}->{search}->{zps}->{$zpid};
 
-    return %{$self->{_sonos}->{groups}};
+	if($dev->getProperty(SONOS_GroupCoordinatorIsLocal)) {
+	    foreach my $udn (split(',', $dev->getProperty(SONOS_ZonePlayerUUIDsInGroup))) {
+		my $zpid = Net::UPnP::SONOS::ZonePlayer::UDN2ShortID("uuid:$udn");
+
+		push(@{$groups{$dev}}, $self->{_sonos}->{search}->{zps}->{$zpid})
+		    if(exists($self->{_sonos}->{search}->{zps}->{$zpid}));
+	    }
+	}
+    }
+
+    return %groups;
 }
 
 1;
