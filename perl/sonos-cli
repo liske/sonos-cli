@@ -100,12 +100,11 @@ my $sonos = Net::UPnP::SONOS->new();
 my $cmd = ucfirst(lc($O_MODE));
 
 my %zones = $sonos->getZones();
-my %groups = $sonos->getGroups();
 unless(exists($commands{$cmd})) {
-    foreach my $group (keys %groups) {
-	print "[", join(', ', map { $zones{$_}->{ZoneAttributes}->{CurrentZoneName} } @{$groups{$group}}), "]\n\t";
-	print $zones{$group}->{TransportInfo}->{CurrentTransportState}, " ";
-	print $zones{$group}->{PositionInfo}->{TrackURI}, "\n\n";
+    foreach my $UDN (keys %zones) {
+	print "[", join(', ', $zones{$UDN}->{ZoneAttributes}->{CurrentZoneName} ), "]\n\t";
+	print $zones{$UDN}->{TransportInfo}->{CurrentTransportState}, " ";
+	print $zones{$UDN}->{PositionInfo}->{TrackURI}, "\n\n";
     }
 }
 else {
