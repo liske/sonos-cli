@@ -26,6 +26,7 @@
 
 use AnyEvent;
 use AnyEvent::HTTPD;
+use AnyEvent::Socket qw(tcp_server);
 use Getopt::Std;
 use MIME::Base64;
 use YAML;
@@ -36,7 +37,6 @@ use Log::Dispatch::Syslog;
 use Net::UPnP::SONOS;
 use Proc::Daemon;
 use Proc::PID::File;
-use IO::Socket;
 use POSIX qw(mkfifo F_SETFL O_NONBLOCK EAGAIN);
 use strict;
 use warnings;
@@ -162,6 +162,55 @@ $sonos->search_async(iv => 3600, cb => sub {
 
     $main::logger->notice("topology update, found ".(scalar keys %zones)." zones in ".(scalar keys %groups)." groups");
 });
+
+my %ctrl_ctxs;
+my %ctrl_cmds = (
+    exit => {
+	handler => sub {
+	    my $fh = shift;
+	    print $fh "OK| bye...\n";
+
+	    $ctrl_ctxs{$fh}->{w} = undef;
+	    delete($ctrl_ctxs{$fh});
+
+	    $main::logger->info("CTRL[".$fh->fileno."] exiting");
+
+	    close($fh);
+	}
+    },
+    );
+my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
+    my ($fh, $host, $port) = @_;
+
+    $main::logger->info("CTRL[".$fh->fileno."] incoming connection from $host:$port...");
+    print $fh "OK| READY\n";
+    $fh->flush;
+
+    $ctrl_ctxs{$fh}->{select} = '*';
+    $ctrl_ctxs{$fh}->{w} = AnyEvent->io(fh => $fh, poll => 'r', cb => sub {
+	if(eof($fh)) {
+	    $ctrl_ctxs{$fh}->{w} = undef;
+	    delete($ctrl_ctxs{$fh});
+
+	    $main::logger->info("CTRL[".$fh->fileno."] EOF");
+
+	    return;
+	}
+
+	my $line = <$fh>;
+	chomp($line);
+	my ($cmd, @args) = split(/\s+/, $line);
+	if(exists($ctrl_cmds{lc($cmd)})) {
+	    $ctrl_cmds{lc($cmd)}->{handler}($fh);
+	}
+	else {
+	    $main::logger->notice("CTRL[".$fh->fileno."] invalid command: $line");
+	    print $fh "ERR| invalid command\n";
+	}
+	$fh->flush;
+				    });
+};
+
 
 $main::logger->info("enter event loop...");
 AnyEvent->condvar->recv;
