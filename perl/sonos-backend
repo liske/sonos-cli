@@ -235,8 +235,19 @@ my %ctrl_cmds;
 	handler => sub {
 	    my $fh = shift;
 
-	    foreach my $cmd (sort keys %ctrl_cmds) {
-		printf $fh "HELP| %-12s\t%s\n", $cmd.join(' ', ), $ctrl_cmds{$cmd}->{descr};
+	    my $c = 0;
+	    print $fh "HELP| Global Commands:\n";
+	    foreach my $cmd (sort { unless($a =~ /^[gz]/ && $b =~ /^[gz]/) { return 1 if($a =~ /^[gz]/); return -1 if($b =~ /^[gz]/); } $a cmp $b; } keys %ctrl_cmds) {
+		if(($c == 0 && $cmd =~ /^g/) ||
+		   ($c == 1 && $cmd =~ /^z/)) {
+
+		    print $fh "HELP| \n";
+		    $c++;
+
+		    print $fh "HELP| Group Commands:\n" if($c == 1);
+		    print $fh "HELP| Zone Commands:\n" if($c == 2);
+		}
+		printf $fh "HELP|  %-12s\t%s\n", $cmd.join(' ', ), $ctrl_cmds{$cmd}->{descr};
 	    }
 
 	    print $fh "OK| done\n";
