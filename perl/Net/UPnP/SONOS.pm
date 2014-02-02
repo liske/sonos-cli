@@ -330,7 +330,7 @@ sub getGroups {
 	    foreach my $udn (split(',', $dev->getProperty(SONOS_ZonePlayerUUIDsInGroup))) {
 		my $zpid = Net::UPnP::SONOS::ZonePlayer::UDN2ShortID("uuid:$udn");
 
-		push(@{$groups{$dev}}, $self->{_sonos}->{search}->{zps}->{$zpid})
+		push(@{$groups{$dev->getShortID()}}, $self->{_sonos}->{search}->{zps}->{$zpid})
 		    if(exists($self->{_sonos}->{search}->{zps}->{$zpid}));
 	    }
 	}

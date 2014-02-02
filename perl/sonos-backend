@@ -35,6 +35,7 @@ use Log::Dispatch;
 use Log::Dispatch::Screen;
 use Log::Dispatch::Syslog;
 use Net::UPnP::SONOS;
+use Net::UPnP::SONOS::Properties qw(:keys);
 use Proc::Daemon;
 use Proc::PID::File;
 use POSIX qw(mkfifo F_SETFL O_NONBLOCK EAGAIN);
@@ -225,9 +226,12 @@ my %ctrl_cmds;
 	handler => sub {
 	    my $fh = shift;
 
-	    %groups = $sonos->getGroups();
-	    use Data::Dumper;
-	    print $fh Dumper(\%groups);
+	    my %groups = $sonos->getGroups();
+	    foreach my $group_zpid (keys %groups) {
+		print $fh "GSTATUS| [".${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName)."]\n";
+		print $fh "GSTATUS|  ".join(', ', map { $_->getShortID() } @{ $groups{$group_zpid} })."\n";
+		print $fh "GSTATUS|\n";
+	    }
 	},
 	descr => qq(Show group status.),
     },
