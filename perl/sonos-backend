@@ -225,7 +225,9 @@ my %ctrl_cmds;
 	handler => sub {
 	    my $fh = shift;
 
-	    print $fh = "ERROR| n/a, yet\n";
+	    %groups = $sonos->getGroups();
+	    use Data::Dumper;
+	    print $fh Dumper(\%groups);
 	},
 	descr => qq(Show group status.),
     },
@@ -270,6 +272,11 @@ my %ctrl_cmds;
 	descr => qq(Terminate current connection.),
     },
     );
+my %ctrl_cmap;
+foreach my $cmd (keys %ctrl_cmds) {
+    $ctrl_cmap{lc($cmd)} = $cmd;
+}
+
 my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
     my ($fh, $host, $port) = @_;
 
@@ -292,8 +299,8 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 	chomp($line);
 	my ($cmd, @args) = split(/\s+/, $line);
 	return unless(defined($cmd));
-	if(exists($ctrl_cmds{lc($cmd)})) {
-	    $ctrl_cmds{lc($cmd)}->{handler}($fh);
+	if(exists($ctrl_cmap{lc($cmd)})) {
+	    $ctrl_cmds{$ctrl_cmap{lc($cmd)}}->{handler}($fh);
 	}
 	else {
 	    $main::logger->notice("CTRL[".$fh->fileno."] invalid command: $line");
