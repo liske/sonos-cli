@@ -164,10 +164,89 @@ $sonos->search_async(iv => 3600, cb => sub {
 });
 
 my %ctrl_ctxs;
-my %ctrl_cmds = (
+my %ctrl_cmds;
+%ctrl_cmds = (
+    select => {
+	handler => sub {
+	    my $fh = shift;
+
+	    print $fh = "ERROR| n/a, yet\n";
+	},
+	descr => qq(Select (group of) zones to apply commands.),
+    },
+
+
+    zLEDSet => {
+	handler => sub {
+	    my $fh = shift;
+
+	    print $fh = "ERROR| n/a, yet\n";
+	},
+	descr => qq(Enable or disable zone's white status LED.),
+    },
+
+    zLEDToggle => {
+	handler => sub {
+	    my $fh = shift;
+
+	    print $fh = "ERROR| n/a, yet\n";
+	},
+	descr => qq(Toggle zone's white status LED.),
+    },
+
+    zMuteSet => {
+	handler => sub {
+	    my $fh = shift;
+
+	    print $fh = "ERROR| n/a, yet\n";
+	},
+	descr => qq(Mute or unmute a zone.),
+    },
+
+    zMuteToggle => {
+	handler => sub {
+	    my $fh = shift;
+
+	    print $fh = "ERROR| n/a, yet\n";
+	},
+	descr => qq(Toggle muting a zone.),
+    },
+
+    zStatus => {
+	handler => sub {
+	    my $fh = shift;
+
+	    print $fh = "ERROR| n/a, yet\n";
+	},
+	descr => qq(Show zone status.),
+    },
+
+    gStatus => {
+	handler => sub {
+	    my $fh = shift;
+
+	    print $fh = "ERROR| n/a, yet\n";
+	},
+	descr => qq(Show group status.),
+    },
+
+
+    help => {
+	handler => sub {
+	    my $fh = shift;
+
+	    foreach my $cmd (sort keys %ctrl_cmds) {
+		printf $fh "HELP| %-12s\t%s\n", $cmd.join(' ', ), $ctrl_cmds{$cmd}->{descr};
+	    }
+
+	    print $fh "OK| done\n";
+	},
+	descr => qq(Show command list.),
+    },
     exit => {
 	handler => sub {
 	    my $fh = shift;
+
 	    print $fh "OK| bye...\n";
 
 	    $ctrl_ctxs{$fh}->{w} = undef;
@@ -176,7 +255,8 @@ my %ctrl_cmds = (
 	    $main::logger->info("CTRL[".$fh->fileno."] exiting");
 
 	    close($fh);
-	}
+	},
+	descr => qq(Terminate current connection.),
     },
     );
 my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
@@ -200,6 +280,7 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 	my $line = <$fh>;
 	chomp($line);
 	my ($cmd, @args) = split(/\s+/, $line);
+	return unless(defined($cmd));
 	if(exists($ctrl_cmds{lc($cmd)})) {
 	    $ctrl_cmds{lc($cmd)}->{handler}($fh);
 	}
