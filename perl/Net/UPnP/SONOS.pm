@@ -339,4 +339,24 @@ sub getGroups {
     return %groups;
 }
 
+sub getGroup {
+    my $self = shift;
+    my $search = shift;
+
+    $self->search() unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
+
+    foreach my $zpid (keys %{$self->{_sonos}->{search}->{zps}}) {
+	my $dev = $self->{_sonos}->{search}->{zps}->{$zpid};
+
+	if($dev->getProperty(SONOS_GroupCoordinatorIsLocal)) {
+	    foreach my $udn (split(',', $dev->getProperty(SONOS_ZonePlayerUUIDsInGroup))) {
+		my $zpid2 = Net::UPnP::SONOS::ZonePlayer::UDN2ShortID("uuid:$udn");
+
+		return $zpid if($zpid2 eq $search);
+	    }
+	}
+    }
+   
+}
+
 1;
