@@ -24,6 +24,7 @@ Install
 sonos-cli contains a Perl daemon and requires the following perl packages:
 * AnyEvent (EV backend is prefered)
 * AnyEvent::HTTPD
+* JSON::Any
 * Log::Any
 * Log::Dispatch
 * Net::UPnP

@@ -28,8 +28,8 @@ use AnyEvent;
 use AnyEvent::HTTPD;
 use AnyEvent::Socket qw(tcp_server);
 use Getopt::Std;
+use JSON::Any;
 use MIME::Base64;
-use YAML;
 use Log::Any::Adapter;
 use Log::Dispatch;
 use Log::Dispatch::Screen;
@@ -154,6 +154,7 @@ unless($opt_f) {
 }
 
 
+my $json = JSON::Any->new();
 my $sonos = Net::UPnP::SONOS->new();
 my %groups;
 my %zones;
@@ -164,6 +165,15 @@ $sonos->search_async(iv => 3600, cb => sub {
     $main::logger->notice("topology update, found ".(scalar keys %zones)." zones in ".(scalar keys %groups)." groups");
 });
 
+sub retval($$$) {
+    return $json->encode(
+	{
+	    errcode => shift,
+	    errmsg => shift,
+	    retval => shift,
+	});
+}
+
 my %ctrl_ctxs;
 my %ctrl_cmds;
 %ctrl_cmds = (
@@ -173,67 +183,52 @@ my %ctrl_cmds;
 
 	    print $fh = "ERROR| n/a, yet\n";
 	},
+	class => qq(global),
 	descr => qq(Select (group of) zones to apply commands.),
     },
 
 
-    zLEDSet => {
+    LED => {
 	handler => sub {
 	    my $fh = shift;
 
 	    print $fh = "ERROR| n/a, yet\n";
 	},
-	descr => qq(Enable or disable zone's white status LED.),
+	class => qq(zone),
+	descr => qq(Enable, disable or toggles zone's white status LED.),
     },
 
-    zLEDToggle => {
+    mute => {
 	handler => sub {
 	    my $fh = shift;
 
 	    print $fh = "ERROR| n/a, yet\n";
 	},
-	descr => qq(Toggle zone's white status LED.),
-    },
-
-    zMuteSet => {
-	handler => sub {
-	    my $fh = shift;
-
-	    print $fh = "ERROR| n/a, yet\n";
-	},
+	class => qq(zone),
 	descr => qq(Mute or unmute a zone.),
     },
 
-    zMuteToggle => {
+    status => {
 	handler => sub {
 	    my $fh = shift;
 
 	    print $fh = "ERROR| n/a, yet\n";
 	},
-	descr => qq(Toggle muting a zone.),
+	descr => qq(Get zone status.),
     },
 
-    zStatus => {
+    members => {
 	handler => sub {
 	    my $fh = shift;
 
-	    print $fh = "ERROR| n/a, yet\n";
-	},
-	descr => qq(Show zone status.),
-    },
-
-    gStatus => {
-	handler => sub {
-	    my $fh = shift;
-
+	    my %members;
 	    my %groups = $sonos->getGroups();
 	    foreach my $group_zpid (keys %groups) {
-		print $fh "GSTATUS| [".${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName)."]\n";
-		print $fh "GSTATUS|  ".join(', ', map { $_->getShortID() } @{ $groups{$group_zpid} })."\n";
-		print $fh "GSTATUS|\n";
+		$members{ ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName) } = [map { $_->getShortID() } @{ $groups{$group_zpid} }];
 	    }
+	    print $fh retval(0, 'OK', \%members)."\n";
 	},
-	descr => qq(Show group status.),
+	descr => qq(Get group members.),
     },
 
 
