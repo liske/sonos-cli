@@ -174,15 +174,43 @@ sub retval($$$) {
 	});
 }
 
+sub find_groups($) {
+    my $sel = shift;
+    my @search = ($sel eq '*' ? keys $sonos->getGroups() : split(/,/, $sel));
+
+    my %g;
+    foreach my $zpid (@search) {
+	$g{$sonos->getGroup($zpid)}++;
+    }
+
+    return keys %g;
+}
+
+sub find_zones($) {
+    my $sel = shift;
+    my @search = ($sel eq '*' ? keys $sonos->getZones() : split(/,/, $sel));
+
+    my %z;
+    foreach my $zpid (keys $sonos->getZones()) {
+	$z{$zpid}++;
+    }
+
+    return keys %z;
+}
+
 my %ctrl_ctxs;
 my %ctrl_cmds;
+my $selector = '*';
 %ctrl_cmds = (
     select => {
 	handler => sub {
 	    my $fh = shift;
+	    
+	    my $selector = shift;
 
-	    print $fh = "ERROR| n/a, yet\n";
+	    print $fh retval(0, 'OK', undef)."\n";
 	},
+	args => [ qr/^(\*|[0-9a-f]{6}(,[0-9a-f]{6})*)$/i ],
 	class => qq(global),
 	descr => qq(Select (group of) zones to apply commands.),
     },
@@ -191,9 +219,13 @@ my %ctrl_cmds;
     LED => {
 	handler => sub {
 	    my $fh = shift;
+	    my $v = shift;
 
-	    print $fh = "ERROR| n/a, yet\n";
+	    my $led = ($v =~ /0|off/ ? 0 : 1);
+
+	    print $fh retval(0, 'OK', undef)."\n";
 	},
+	args => [ qr/^(0|1|on|off|toggle)$/i ],
 	class => qq(zone),
 	descr => qq(Enable, disable or toggles zone's white status LED.),
     },
@@ -204,6 +236,7 @@ my %ctrl_cmds;
 
 	    print $fh = "ERROR| n/a, yet\n";
 	},
+	args => [ qr/^(0|1|on|off|toggle)$/i ],
 	class => qq(zone),
 	descr => qq(Mute or unmute a zone.),
     },
@@ -299,7 +332,31 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 	my ($cmd, @args) = split(/\s+/, $line);
 	return unless(defined($cmd));
 	if(exists($ctrl_cmap{lc($cmd)})) {
-	    $ctrl_cmds{$ctrl_cmap{lc($cmd)}}->{handler}($fh);
+	    my $cref = $ctrl_cmds{$ctrl_cmap{lc($cmd)}};
+
+	    my $e = 0;
+	    if(exists($cref->{args})) {
+		if($#args != $#{ $cref->{args} }) {
+		    print $fh retval(1, 'Invalid argument count!', undef)."\n";
+		    $e++;
+		}
+		else {
+		    foreach my $i (0 .. $#args) {
+			unless($args[$i] =~ /$cref->{args}->[$i]/i) {
+			    print $fh retval(1, 'Argument #'.($i+1)." has invalid format (expected m/$cref->{args}->[$i]/i)!", undef)."\n";
+			    $e++;
+			    last;
+			}
+		    }
+		}
+
+	    }
+	    elsif($#args != -1) {
+		print $fh retval(1, 'Invalid arguments!', undef)."\n";
+		$e++;
+	    }
+
+	    $cref->{handler}($fh, @args) unless($e);
 	}
 	else {
 	    $main::logger->notice("CTRL[".$fh->fileno."] invalid command: $line");
