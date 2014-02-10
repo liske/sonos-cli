@@ -188,14 +188,16 @@ sub find_groups($) {
 
 sub find_zones($) {
     my $sel = shift;
-    my @search = ($sel eq '*' ? keys $sonos->getZones() : split(/,/, $sel));
+#    my @search = ($sel eq '*' ? keys $sonos->getZones() : split(/,/, $sel));
+#
+#    my %z;
+#    foreach my $zpid (keys $sonos->getZones()) {
+#	$z{$zpid}++;
+#    }
 
-    my %z;
-    foreach my $zpid (keys $sonos->getZones()) {
-	$z{$zpid}++;
-    }
+#    return keys %z;
 
-    return keys %z;
+    return $sonos->getZones();
 }
 
 my %ctrl_ctxs;
@@ -206,7 +208,7 @@ my $selector = '*';
 	handler => sub {
 	    my $fh = shift;
 	    
-	    my $selector = shift;
+	    $selector = shift;
 
 	    print $fh retval(0, 'OK', undef)."\n";
 	},
@@ -222,6 +224,12 @@ my $selector = '*';
 	    my $v = shift;
 
 	    my $led = ($v =~ /0|off/ ? 0 : 1);
+
+	    my %zones = find_zones($selector);
+	    foreach my $zpid (keys %zones) {
+		my $dev = $zones{$zpid}->{zone};
+		$dev->dpLED($led);
+	    }
 
 	    print $fh retval(0, 'OK', undef)."\n";
 	},

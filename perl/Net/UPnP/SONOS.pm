@@ -239,6 +239,7 @@ SSDP_SEARCH_MSG
 	$dev->setssdp($ssdp_res_msg);
 	$dev->setdescription($post_content);
 	$dev->subEvents($self->{_sonos}->{httpd});
+	$dev->init;
 
 	$self->{_sonos}->{search}->{zps}->{$zpid} = $dev;
     });
@@ -249,54 +250,7 @@ SSDP_SEARCH_MSG
 	$self->{_sonos}->{search}->{io} = undef;
 	$self->{_sonos}->{search}->{timer} = undef;
 
-
-	$self->{_sonos}->{zones} = undef;
-	$self->{_sonos}->{groups} = undef;
-
-	foreach my $zpid (keys %{$self->{_sonos}->{search}->{zps}}) {
-	    my $zp = $self->{_sonos}->{search}->{zps}->{$zpid};
-	    my %services;
-	    $services{(SONOS_SRV_AlarmClock)} = $zp->getservicebyname(SONOS_SRV_AlarmClock);
-	    $services{(SONOS_SRV_DeviceProperties)} = $zp->getservicebyname(SONOS_SRV_DeviceProperties);
-	    $services{(SONOS_SRV_AVTransport)} = $zp->getservicebyname(SONOS_SRV_AVTransport);
-
-	    # GetZoneAttributes (get zone name)
-	    my $aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneAttributes');
-	    if($aresp->getstatuscode != SONOS_STATUS_OK) {
-		carp 'Got error code '.$aresp->getstatuscode;
-		next;
-	    }
-	    $self->{_sonos}->{zones}->{$zpid}->{ZoneAttributes} = $aresp->getargumentlist;
-
-
-	    my %aargs = (
-		'InstanceID' => 0,
-	    );
-
-
-	    $aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetPositionInfo', \%aargs);
-	    if($aresp->getstatuscode != SONOS_STATUS_OK) {
-		carp 'Got error code '.$aresp->getstatuscode;
-		next;
-	    }
-	    $self->{_sonos}->{zones}->{$zpid}->{PositionInfo} = $aresp->getargumentlist;
-
-
-	    $aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
-	    if($aresp->getstatuscode != SONOS_STATUS_OK) {
-		carp 'Got error code '.$aresp->getstatuscode;
-		next;
-	    }
-	    $self->{_sonos}->{zones}->{$zpid}->{TransportInfo} = $aresp->getargumentlist;
-
-	    if($self->{_sonos}->{zones}->{$zpid}->{PositionInfo}->{TrackURI} =~ /^x-rincon:(RINCON_[\dA-F]+)/) {
-		push(@{$self->{_sonos}->{groups}->{$1}}, $zpid);
-	    }
-	    else {
-		push(@{$self->{_sonos}->{groups}->{$zpid}}, $zpid);
-	    }
-	}
-
+	# call callback
 	&{$args{cb}}($self) if(defined($args{cb}));
     });
 }

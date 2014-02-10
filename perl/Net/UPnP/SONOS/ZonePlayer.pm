@@ -52,12 +52,26 @@ sub new($$) {
     $self->{_sonos}->{httpd} = $httpd;
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{refresh} = 900;
+
+    $self->{_sonos}->{initialized} = 0;
+    $self->{_sonos}->{services} = { };
     $self->{_sonos}->{properties} = { };
     
     bless $self, $class;
     return $self;
 }
 
+sub init {
+    my $self = shift;
+
+    return if($self->{_sonos}->{initialized});
+
+    $self->{_sonos}->{services}->{(SONOS_SRV_AlarmClock)} = $self->getservicebyname(SONOS_SRV_AlarmClock);
+    $self->{_sonos}->{services}->{(SONOS_SRV_DeviceProperties)} = $self->getservicebyname(SONOS_SRV_DeviceProperties);
+    $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)} = $self->getservicebyname(SONOS_SRV_AVTransport);
+
+    $self->{_sonos}->{initialized}++;
+}
 
 sub getDevIP {
     my $self = shift;
@@ -251,6 +265,15 @@ sub avtPrevious() {
 
 sub dpLED() {
     my $self = shift;
+    my $state = shift;
+
+    my %aargs = (
+	'InstanceID' => 0,
+	'DesiredLEDState' => ($state ? 'On' : 'Off'),
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_DeviceProperties)}->postaction(qq(SetLEDState), \%aargs);
+    return $aresp->getstatuscode;
 }
 
 1;
