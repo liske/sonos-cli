@@ -26,19 +26,30 @@
 
 use warnings;
 use strict;
+
+use AnyEvent;
+use AnyEvent::Socket;
+use AnyEvent::Handle;
+use Data::Dumper;
 use Getopt::Std;
 use Net::UPnP::SONOS;
 
+$|++;
 $Getopt::Std::STANDARD_HELP_VERSION++;
+
+our $opt_h = '127.0.0.1';
+our $opt_p = 1400;
+our $opt_f = 'human';
 
 sub HELP_MESSAGE {
     print <<USG;
 Usage:
 
-  sosh [-h <host>] [-p <port>]
+  sosh [-h <host>] [-p <port>] [-f <format>]
 
-    -h <host>	sonos-backend host [::1]
-    -p <port>   sonos-backend listen port [1400]
+    -h <host>	sonos-backend host [$opt_h]
+    -p <port>   sonos-backend listen port [$opt_p]
+    -f <format> output format (human or json) [$opt_f]
     --help      show this help
     --version   show version information
 
@@ -71,9 +82,48 @@ LIC
 #/
 }
 
-our $opt_h = '::1';
-our $opt_p = 1400;
 unless(getopts('h:p:')) {
     HELP_MESSAGE;
     exit 1;
 }
+
+my $htcp;
+my $hstd;
+
+my $fh;
+tcp_connect $opt_h, $opt_p, sub {
+    unless($fh = shift) {
+	print STDERR "Unable to connect to $opt_h:$opt_p: $!\n";
+	close(STDIN);
+	exit;
+    };
+
+    $htcp = new AnyEvent::Handle(
+	fh => $fh,
+	on_eof => sub {
+	    close(STDIN);
+	    exit;
+	},
+	on_read => sub {
+	    $htcp->push_read(line => sub {
+		print "$_[1]\n";
+	    });
+	}
+    );
+};
+
+$hstd = new AnyEvent::Handle(
+    fh => \*STDIN,
+    on_eof => sub {
+	close($fh);
+	exit;
+    },
+    on_read => sub {
+	$hstd->push_read(line => sub {
+	    $htcp->push_write("$_[1]\n");
+	});
+
+    }
+);
+
+AnyEvent->condvar->recv;
