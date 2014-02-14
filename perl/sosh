@@ -84,7 +84,7 @@ LIC
 #/
 }
 
-unless(getopts('h:p:')) {
+unless(getopts('h:p:i:o:')) {
     HELP_MESSAGE;
     exit 1;
 }
