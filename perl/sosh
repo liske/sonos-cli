@@ -39,17 +39,19 @@ $Getopt::Std::STANDARD_HELP_VERSION++;
 
 our $opt_h = '127.0.0.1';
 our $opt_p = 1400;
-our $opt_f = 'human';
+our $opt_i = 'human';
+our $opt_o = 'human';
 
 sub HELP_MESSAGE {
     print <<USG;
 Usage:
 
-  sosh [-h <host>] [-p <port>] [-f <format>]
+  sosh [-h <host>] [-p <port>] [-i <format>] [-o <format>]
 
     -h <host>	sonos-backend host [$opt_h]
     -p <port>   sonos-backend listen port [$opt_p]
-    -f <format> output format (human or json) [$opt_f]
+    -i <format> input format ('human' or 'json') [$opt_i]
+    -o <format> output format ('human' or 'json') [$opt_o]
     --help      show this help
     --version   show version information
 
