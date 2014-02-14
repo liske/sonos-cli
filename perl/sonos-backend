@@ -165,7 +165,7 @@ $sonos->search_async(iv => 3600, cb => sub {
     $main::logger->notice("topology update, found ".(scalar keys %zones)." zones in ".(scalar keys %groups)." groups");
 });
 
-sub retval($$$) {
+sub retval {
     return $json->encode(
 	{
 	    errcode => shift,
@@ -210,7 +210,7 @@ my $selector = '*';
 	    
 	    $selector = shift;
 
-	    print $fh retval(0, 'OK', undef)."\n";
+	    print $fh retval(0, 'OK');
 	},
 	args => [ qr/^(\*|[0-9a-f]{6}(,[0-9a-f]{6})*)$/i ],
 	class => qq(global),
@@ -231,7 +231,7 @@ my $selector = '*';
 		$dev->dpLED($led);
 	    }
 
-	    print $fh retval(0, 'OK', undef)."\n";
+	    print $fh retval(0, 'OK');
 	},
 	args => [ qr/^(0|1|on|off|toggle)$/i ],
 	class => qq(zone),
@@ -267,7 +267,7 @@ my $selector = '*';
 	    foreach my $group_zpid (keys %groups) {
 		$members{ ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName) } = [map { $_->getShortID() } @{ $groups{$group_zpid} }];
 	    }
-	    print $fh retval(0, 'OK', \%members)."\n";
+	    print $fh retval(0, 'OK', \%members);
 	},
 	descr => qq(Get group members.),
     },
@@ -292,7 +292,7 @@ my $selector = '*';
 		printf $fh "HELP|  %-12s\t%s\n", $cmd.join(' ', ), $ctrl_cmds{$cmd}->{descr};
 	    }
 
-	    print $fh "OK| done\n";
+	    print $fh retval(qq(OK), qq(done));
 	},
 	descr => qq(Show command list.),
     },
@@ -300,7 +300,7 @@ my $selector = '*';
 	handler => sub {
 	    my $fh = shift;
 
-	    print $fh "OK| bye...\n";
+	    print $fh retval(qq(OK), qq(bye...));
 
 	    $ctrl_ctxs{$fh}->{w} = undef;
 	    delete($ctrl_ctxs{$fh});
@@ -321,7 +321,7 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
     my ($fh, $host, $port) = @_;
 
     $main::logger->info("CTRL[".$fh->fileno."] incoming connection from $host:$port...");
-    print $fh "OK| READY\n";
+    print $fh retval(qq(OK), qq(READY));
     $fh->flush;
 
     $ctrl_ctxs{$fh}->{select} = '*';
@@ -360,7 +360,7 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 
 	    }
 	    elsif($#args != -1) {
-		print $fh retval(1, 'Invalid arguments!', undef)."\n";
+		print $fh retval(1, 'Invalid arguments!');
 		$e++;
 	    }
 
@@ -368,7 +368,7 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 	}
 	else {
 	    $main::logger->notice("CTRL[".$fh->fileno."] invalid command: $line");
-	    print $fh "ERR| invalid command\n";
+	    print $fh retval(qq(ERR), qq(unknown command));
 	}
 	$fh->flush;
 				    });
