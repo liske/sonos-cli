@@ -109,10 +109,10 @@ tcp_connect $opt_h, $opt_p, sub {
 	on_read => sub {
 	    $htcp->push_read(json => sub {
 		if($opt_o eq 'human') {
-		    $hstd->push_write(Dumper($_[1]));
+		    print Dumper($_[1]);
 		}
-		elsif($opt_i eq 'json') {
-		    $hstd->push_write($hstd->json_coder->encode($_[1]));
+		elsif($opt_o eq 'json') {
+		    print $hstd->json_coder->encode($_[1])."\n";
 		}
 	    });
 	}
