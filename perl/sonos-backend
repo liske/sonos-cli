@@ -177,20 +177,41 @@ sub retval {
 
 sub find_groups($) {
     my $sel = shift;
-    my @search = ($sel eq '*' ? keys $sonos->getGroups() : split(/,/, $sel));
+    my %groups = $sonos->getGroups();
+    my %zones = $sonos->getZones();
+    my @search = ($sel eq '*' ? keys %groups : split(/,/, $sel));
 
     my %g;
     foreach my $zpid (@search) {
 	$g{$sonos->getGroup($zpid)}++;
     }
 
-    return keys %g;
+    return map { $zones{$_} } keys %g;
+}
+
+sub each_group($$) {
+    my $sel = shift;
+    my $cb = shift;
+
+    foreach my $dev (find_groups($sel)) {
+	&$cb($dev);
+    }
 }
 
 sub find_zones($) {
     my $sel = shift;
 
     return $sonos->getZones();
+}
+
+sub each_zone($$) {
+    my $sel = shift;
+    my $cb = shift;
+
+    my %zones = find_zones($sel);
+    foreach my $dev (values %zones) {
+	&$cb($dev);
+    }
 }
 
 my %ctrl_ctxs;
@@ -218,11 +239,9 @@ my $selector = '*';
 
 	    my $led = ($v =~ /0|off/ ? 0 : 1);
 
-	    my %zones = find_zones($selector);
-	    foreach my $zpid (keys %zones) {
-		my $dev = $zones{$zpid};
-		$dev->dpLED($led);
-	    }
+	    each_zone($selector, sub {
+		shift->dpLED($led);
+	    });
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
@@ -266,6 +285,84 @@ my $selector = '*';
     },
 
 
+    ## AVT ##
+    play => {
+	handler => sub {
+	    my $fh = shift;
+
+	    each_group($selector, sub {
+		shift->avtPlay();
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ ],
+	class => qq(group),
+	descr => qq(Plays a group.),
+    },
+
+    pause => {
+	handler => sub {
+	    my $fh = shift;
+
+	    each_group($selector, sub {
+		shift->avtPause();
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ ],
+	class => qq(group),
+	descr => qq(Pauses a group.),
+    },
+
+    stop => {
+	handler => sub {
+	    my $fh = shift;
+
+	    each_group($selector, sub {
+		shift->avtStop();
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ ],
+	class => qq(group),
+	descr => qq(Stops a group.),
+    },
+
+    next => {
+	handler => sub {
+	    my $fh = shift;
+
+	    each_group($selector, sub {
+		shift->avtNext();
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ ],
+	class => qq(group),
+	descr => qq(Switch to the next track in a group.),
+    },
+
+    previous => {
+	handler => sub {
+	    my $fh = shift;
+
+	    each_group($selector, sub {
+		shift->avtPrevious();
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ ],
+	class => qq(group),
+	descr => qq(Switch to the previous track in a group.),
+    },
+
+
+    ## Misc ##
     help => {
 	handler => sub {
 	    my $fh = shift;
