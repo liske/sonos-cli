@@ -30,3 +30,5 @@ sonos-cli contains a Perl daemon and requires the following perl packages:
 * Net::UPnP
 * Proc::Daemon
 * Proc::PID::File
+
+Take a look at [USAGE](USAGE.md) howto use *sonos-cli*.
