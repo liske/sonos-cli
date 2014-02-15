@@ -13,7 +13,8 @@ Net::UPnP
 ---------
 
 Net::UPnP is unable to handle the Transfer-Encoding headers. sonos-cli requires
-a fixed Net::UPnP version which handles Transfer-Encoding: chunked correctly.
+a fixed Net::UPnP version which handles *Transfer-Encoding: chunked* correctly
+(pull request on [github.com](https://github.com/cybergarage/CyberLink4Perl/pull/1)).
 
 This package is shipped with a fixed version.
 
