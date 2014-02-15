@@ -226,41 +226,73 @@ sub getProperty($$) {
 sub avtPlay(;$) {
     my $self = shift;
 
-    die "N/A";
+    my %aargs = (
+	'InstanceID' => 0,
+	'Speed' => 1,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Play), \%aargs);
+    return $aresp->getstatuscode;
 }
 
 
 sub avtPause() {
     my $self = shift;
 
-    die "N/A";
+    my %aargs = (
+	'InstanceID' => 0,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Pause), \%aargs);
+    return $aresp->getstatuscode;
 }
 
 
 sub avtStop() {
     my $self = shift;
 
-    die "N/A";
+    my %aargs = (
+	'InstanceID' => 0,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Stop), \%aargs);
+    return $aresp->getstatuscode;
 }
 
 
 sub avtToggle() {
     my $self = shift;
 
-    die "N/A";
+    my %aargs = (
+	'InstanceID' => 0,
+	'Speed' => 1,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Toggle), \%aargs);
+    return $aresp->getstatuscode;
 }
 
 
 sub avtNext() {
     my $self = shift;
 
-    die "N/A";
+    my %aargs = (
+	'InstanceID' => 0,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Next), \%aargs);
+    return $aresp->getstatuscode;
 }
 
 sub avtPrevious() {
     my $self = shift;
 
-    die "N/A";
+    my %aargs = (
+	'InstanceID' => 0,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Previous), \%aargs);
+    return $aresp->getstatuscode;
 }
 
 
