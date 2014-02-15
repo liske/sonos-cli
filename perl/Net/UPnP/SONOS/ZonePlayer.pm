@@ -57,6 +57,7 @@ sub new($$) {
     $self->{_sonos}->{services} = { };
     $self->{_sonos}->{properties} = { };
     
+    $self->{_sonos}->{logger}->error("$self => $class");
     bless $self, $class;
     return $self;
 }

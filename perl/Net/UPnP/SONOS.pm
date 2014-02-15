@@ -90,6 +90,7 @@ sub new {
 
 
 sub search {
+    die;
     my $self = shift;
     $self->{_sonos}->{zones} = undef;
     $self->{_sonos}->{groups} = undef;
@@ -263,18 +264,12 @@ sub regSrvSubs($$$) {
 
 sub getZones {
     my $self = shift;
-    $self->search() unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
-    
-    return ( ) unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
 
-    return %{$self->{_sonos}->{zones}};
+    return %{$self->{_sonos}->{search}->{zps}};
 }
 
 sub getGroups {
     my $self = shift;
-    $self->search() unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
-    
-    return ( ) unless(exists($self->{_sonos}->{zones}) && defined($self->{_sonos}->{zones}));
 
     my %groups;
     foreach my $zpid (keys %{$self->{_sonos}->{search}->{zps}}) {
