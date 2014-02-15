@@ -28,6 +28,7 @@ use AnyEvent;
 use AnyEvent::HTTPD;
 use AnyEvent::Socket qw(tcp_server);
 use Getopt::Std;
+use HTTP::Status qw(:constants);
 use JSON::Any;
 use MIME::Base64;
 use Log::Any::Adapter;
@@ -168,8 +169,8 @@ $sonos->search_async(iv => 3600, cb => sub {
 sub retval {
     return $json->encode(
 	{
-	    errcode => shift,
-	    errmsg => shift,
+	    status_code => shift,
+	    status_msg => shift,
 	    retval => shift,
 	});
 }
@@ -210,7 +211,7 @@ my $selector = '*';
 	    
 	    $selector = shift;
 
-	    print $fh retval(0, 'OK');
+	    print $fh retval(HTTP_OK, 'OK');
 	},
 	args => [ qr/^(\*|[0-9a-f]{6}(,[0-9a-f]{6})*)$/i ],
 	class => qq(global),
@@ -231,7 +232,7 @@ my $selector = '*';
 		$dev->dpLED($led);
 	    }
 
-	    print $fh retval(0, 'OK');
+	    print $fh retval(HTTP_OK, 'OK');
 	},
 	args => [ qr/^(0|1|on|off|toggle)$/i ],
 	class => qq(zone),
@@ -267,7 +268,7 @@ my $selector = '*';
 	    foreach my $group_zpid (keys %groups) {
 		$members{ ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName) } = [map { $_->getShortID() } @{ $groups{$group_zpid} }];
 	    }
-	    print $fh retval(0, 'OK', \%members);
+	    print $fh retval(HTTP_OK, 'OK', \%members);
 	},
 	descr => qq(Get group members.),
     },
@@ -278,21 +279,21 @@ my $selector = '*';
 	    my $fh = shift;
 
 	    my $c = 0;
-	    print $fh "HELP| Global Commands:\n";
+	    my $msg = "Global Commands:\n";
 	    foreach my $cmd (sort { unless($a =~ /^[gz]/ && $b =~ /^[gz]/) { return 1 if($a =~ /^[gz]/); return -1 if($b =~ /^[gz]/); } $a cmp $b; } keys %ctrl_cmds) {
 		if(($c == 0 && $cmd =~ /^g/) ||
 		   ($c == 1 && $cmd =~ /^z/)) {
 
-		    print $fh "HELP| \n";
+		    $msg .= "\n";
 		    $c++;
 
-		    print $fh "HELP| Group Commands:\n" if($c == 1);
-		    print $fh "HELP| Zone Commands:\n" if($c == 2);
+		    $msg .= "Group Commands:\n" if($c == 1);
+		    $msg .= "Zone Commands:\n" if($c == 2);
 		}
-		printf $fh "HELP|  %-12s\t%s\n", $cmd.join(' ', ), $ctrl_cmds{$cmd}->{descr};
+		$msg .= sprintf " %-12s\t%s\n", $cmd.join(' ', ), $ctrl_cmds{$cmd}->{descr};
 	    }
 
-	    print $fh retval(qq(OK), qq(done));
+	    print $fh retval(HTTP_OK, qq(OK), $msg);
 	},
 	descr => qq(Show command list.),
     },
@@ -300,7 +301,7 @@ my $selector = '*';
 	handler => sub {
 	    my $fh = shift;
 
-	    print $fh retval(qq(OK), qq(bye...));
+	    print $fh retval(HTTP_OK, qq(OK));
 
 	    $ctrl_ctxs{$fh}->{w} = undef;
 	    delete($ctrl_ctxs{$fh});
@@ -321,7 +322,7 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
     my ($fh, $host, $port) = @_;
 
     $main::logger->info("CTRL[".$fh->fileno."] incoming connection from $host:$port...");
-    print $fh retval(qq(OK), qq(READY));
+    print $fh retval(HTTP_OK, qq(READY));
     $fh->flush;
 
     $ctrl_ctxs{$fh}->{select} = '*';
@@ -345,13 +346,13 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 	    my $e = 0;
 	    if(exists($cref->{args})) {
 		if($#args != $#{ $cref->{args} }) {
-		    print $fh retval(1, 'Invalid argument count!', undef)."\n";
+		    print $fh retval(HTTP_BAD_REQUEST, 'Invalid argument count!', undef)."\n";
 		    $e++;
 		}
 		else {
 		    foreach my $i (0 .. $#args) {
 			unless($args[$i] =~ /$cref->{args}->[$i]/i) {
-			    print $fh retval(1, 'Argument #'.($i+1)." has invalid format (expected m/$cref->{args}->[$i]/i)!", undef)."\n";
+			    print $fh retval(HTTP_BAD_REQUEST, 'Argument #'.($i+1)." has invalid format (expected m/$cref->{args}->[$i]/i)!", undef)."\n";
 			    $e++;
 			    last;
 			}
@@ -360,7 +361,7 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 
 	    }
 	    elsif($#args != -1) {
-		print $fh retval(1, 'Invalid arguments!');
+		print $fh retval(HTTP_BAD_REQUEST, 'Invalid arguments!');
 		$e++;
 	    }
 
@@ -368,7 +369,7 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 	}
 	else {
 	    $main::logger->notice("CTRL[".$fh->fileno."] invalid command: $line");
-	    print $fh retval(qq(ERR), qq(unknown command));
+	    print $fh retval(HTTP_NOT_IMPLEMENTED, qq(unknown command));
 	}
 	$fh->flush;
 				    });
