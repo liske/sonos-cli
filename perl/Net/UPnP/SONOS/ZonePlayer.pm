@@ -294,6 +294,33 @@ sub avtPrevious() {
     return $aresp->getstatuscode;
 }
 
+sub avtJoin {
+    my $self = shift;
+    my $mid = shift;
+    my $transport = "x-rincon:RINCON_${mid}01400";
+
+    my %aargs = (
+	InstanceID => 0,
+	CurrentURIMetaData => '',
+	CurrentURI => $transport,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(SetAVTransportURI), \%aargs);
+    return $aresp->getstatuscode;
+}
+
+sub avtLeave {
+    my $self = shift;
+
+    my %aargs = (
+	InstanceID => 0,
+	Speed => 1,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(BecomeCoordinatorOfStandaloneGroup), \%aargs);
+    return $aresp->getstatuscode;
+}
+
 
 sub dpLED() {
     my $self = shift;

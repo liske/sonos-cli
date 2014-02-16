@@ -361,6 +361,44 @@ my $selector = '*';
 	descr => qq(Switch to the previous track in a group.),
     },
 
+    join => {
+	handler => sub {
+	    my $fh = shift;
+	    my $mid = shift;
+
+	    if($mid eq '*') {
+		my @groups = find_groups($selector);
+		$mid = (shift @groups)->getShortID;
+	    }
+
+	    each_zone($selector, sub {
+		my $dev = shift;
+		$dev->avtJoin($mid)
+		    if($dev->getShortID ne $mid)
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ qr/^(\*|[0-9a-f]{6})$/i ],
+	class => qq(zone),
+	descr => qq(Join a zone group.),
+    },
+
+    leave => {
+	handler => sub {
+	    my $fh = shift;
+
+	    each_zone($selector, sub {
+		shift->avtLeave();
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ ],
+	class => qq(zone),
+	descr => qq(Leave the current zone group.),
+    },
+
 
     ## Misc ##
     help => {
