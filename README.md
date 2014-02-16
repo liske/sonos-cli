@@ -8,7 +8,7 @@ sonos-cli is a command line interface to control 'Sonos ZonePlayer'.
 
 *This piece of software is highly unstable and absolutely unfinished.*
 
-![sonos-cli components](doc/components.svg)
+![sonos-cli components](http://liske.github.io/sonos-cli/images/components.svg)
 
 Net::UPnP
 ---------
