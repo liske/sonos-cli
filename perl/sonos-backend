@@ -226,7 +226,7 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ qr/^(\*|[0-9a-f]{6}(,[0-9a-f]{6})*)$/i ],
+	args => [ qr/^(\*|[0-9a-f]{12}(,[0-9a-f]{12})*)$/i ],
 	class => qq(global),
 	descr => qq(Select (group of) zones to apply commands.),
     },
@@ -379,7 +379,7 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ qr/^(\*|[0-9a-f]{6})$/i ],
+	args => [ qr/^(\*|[0-9a-f]{12})$/i ],
 	class => qq(zone),
 	descr => qq(Join a zone group.),
     },
