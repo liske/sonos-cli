@@ -296,7 +296,6 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ ],
 	class => qq(group),
 	descr => qq(Plays a group.),
     },
@@ -311,7 +310,6 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ ],
 	class => qq(group),
 	descr => qq(Pauses a group.),
     },
@@ -326,7 +324,6 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ ],
 	class => qq(group),
 	descr => qq(Stops a group.),
     },
@@ -341,7 +338,6 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ ],
 	class => qq(group),
 	descr => qq(Switch to the next track in a group.),
     },
@@ -356,7 +352,6 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ ],
 	class => qq(group),
 	descr => qq(Switch to the previous track in a group.),
     },
@@ -394,7 +389,6 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ ],
 	class => qq(zone),
 	descr => qq(Leave the current zone group.),
     },
