@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv="X-UA-Compatible" content="chrome=1" />
+    <meta name="description" content="sonos-cli : command line interface to control Sonos ZonePlayers (e.g. for home automation integration)" />
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>sonos-cli</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/liske/sonos-cli">View on GitHub</a>
+
+          <h1 id="project_title">sonos-cli</h1>
+          <h2 id="project_tagline">command line interface to control Sonos ZonePlayers (e.g. for home automation integration)</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/liske/sonos-cli/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/liske/sonos-cli/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a name="sonos-cli" class="anchor" href="#sonos-cli"><span class="octicon octicon-link"></span></a>sonos-cli</h1>
+
+<h2>
+<a name="about" class="anchor" href="#about"><span class="octicon octicon-link"></span></a>About</h2>
+
+<p>sonos-cli is a command line interface to control 'Sonos ZonePlayer'.</p>
+
+<p><em>This piece of software is highly unstable and absolutely unfinished.</em></p>
+
+<p><img src="doc/components.svg" alt="sonos-cli components"></p>
+
+<h2>
+<a name="netupnp" class="anchor" href="#netupnp"><span class="octicon octicon-link"></span></a>Net::UPnP</h2>
+
+<p>Net::UPnP is unable to handle the Transfer-Encoding headers. sonos-cli requires
+a fixed Net::UPnP version which handles <em>Transfer-Encoding: chunked</em> correctly
+(pull request on <a href="https://github.com/cybergarage/CyberLink4Perl/pull/1">github.com</a>).</p>
+
+<p>This package is shipped with a fixed version.</p>
+
+<h2>
+<a name="install" class="anchor" href="#install"><span class="octicon octicon-link"></span></a>Install</h2>
+
+<p>sonos-cli contains a Perl daemon and requires the following perl packages:</p>
+
+<ul>
+<li>AnyEvent (EV backend is prefered)</li>
+<li>AnyEvent::HTTPD</li>
+<li>JSON::Any</li>
+<li>Log::Any</li>
+<li>Log::Dispatch</li>
+<li>Net::UPnP</li>
+<li>Proc::Daemon</li>
+<li>Proc::PID::File</li>
+</ul><p>Take a look at <a href="USAGE.md">USAGE</a> howto use <em>sonos-cli</em>.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">sonos-cli maintained by <a href="https://github.com/liske">liske</a></p>
+        <p>Published with <a href="http://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
