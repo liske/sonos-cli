@@ -393,6 +393,27 @@ my $selector = '*';
 	descr => qq(Leave the current zone group.),
     },
 
+    play_uri => {
+	handler => sub {
+	    my $fh = shift;
+	    my $uri = shift;
+	    my $meta = shift;
+
+	    $uri =~ s@^http:@x-rincon-mp3radio:@i;
+	    each_group($selector, sub {
+		my $group = shift;
+
+		$group->avtURI($uri, $meta);
+		$group->avtPlay;
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ qr/.{3,}/, qr// ],
+	class => qq(group),
+	descr => qq(Playback an URI.),
+    },
+
 
     ## Misc ##
     help => {
