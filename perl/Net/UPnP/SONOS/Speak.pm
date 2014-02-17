@@ -24,7 +24,7 @@
 
 
 # Please be aware: most of the code accessing Google's Translate API is based on
-# the package Speech::Google::TTS:
+# the package Speech::Google::TTS 0.74:
 #
 #   Module that uses Google Translate for text to speech synthesis.
 #
