@@ -414,6 +414,26 @@ my $selector = '*';
 	descr => qq(Playback an URI.),
     },
 
+    say => {
+	handler => sub {
+	    my $fh = shift;
+
+	    my @cids = $sonos->speak->say(@_);
+	    print "=> ".join(', ', @cids),"\n";
+	    each_group($selector, sub {
+		my $group = shift;
+
+#		$group->say(@cids);
+#		$group->avtPlay;
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ undef ],
+	class => qq(group),
+	descr => qq(Playback an URI.),
+    },
+
 
     ## Misc ##
     help => {
@@ -487,12 +507,15 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 
 	    my $e = 0;
 	    if(exists($cref->{args})) {
-		if($#args != $#{ $cref->{args} }) {
-		    print $fh retval(HTTP_BAD_REQUEST, 'Invalid argument count!', undef)."\n";
-		    $e++;
-		}
-		else {
+#		if($#args != $#{ $cref->{args} }) {
+#		    print $fh retval(HTTP_BAD_REQUEST, 'Invalid argument count!', undef)."\n";
+#		    $e++;
+#		}
+#		else {
+		{
 		    foreach my $i (0 .. $#args) {
+			last unless(defined($args[$i]));
+
 			unless($args[$i] =~ /$cref->{args}->[$i]/i) {
 			    print $fh retval(HTTP_BAD_REQUEST, 'Argument #'.($i+1)." has invalid format (expected m/$cref->{args}->[$i]/i)!", undef)."\n";
 			    $e++;

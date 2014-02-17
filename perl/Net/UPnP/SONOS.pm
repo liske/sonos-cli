@@ -26,6 +26,7 @@ package Net::UPnP::SONOS;
 
 use AnyEvent;
 use AnyEvent::HTTPD;
+use HTTP::Status qw(:constants status_message);
 use Log::Any;
 use Socket;
 
@@ -34,6 +35,7 @@ use warnings;
 use Carp;
 
 use Net::UPnP::SONOS::Properties qw(:keys);
+use Net::UPnP::SONOS::Speak;
 use Net::UPnP::SONOS::ZonePlayer;
 
 use constant {
@@ -62,25 +64,54 @@ sub new {
     my $self = $class->SUPER::new();
 
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
+    $self->{_sonos}->{speak} = Net::UPnP::SONOS::Speak->new;
     $self->{_sonos}->{search_timeout} = 3;
     $self->{_sonos}->{sid2dev} = { };
-    $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new(allowed_methods => [qw(NOTIFY)]);
+    $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new(allowed_methods => [qw(NOTIFY GET)]);
     $self->{_sonos}->{httpd}->reg_cb (
 	request => sub {
 	    my ($httpd, $req) = @_;
 	    my $headers = $req->headers;
-	    my $sid = (exists($headers->{sid}) ? $headers->{sid} : '');
 
-	    unless(exists($self->{_sonos}->{sid2dev}->{$sid})) {
-		my $msg = "rejecting unknown subscription '$sid'";
-		$self->{_sonos}->{logger}->notice($msg);
-		$req->respond([412, 'Precondition Failed', { 'Content-Type' => 'text/plain' }, $msg]);
+	    if($req->method eq qq(NOTIFY)) {
+		my $sid = (exists($headers->{sid}) ? $headers->{sid} : '');
 
-		return;
+		unless(exists($self->{_sonos}->{sid2dev}->{$sid})) {
+		    my $msg = "rejecting unknown subscription '$sid'";
+		    $self->{_sonos}->{logger}->notice($msg);
+		    $req->respond([412, 'Precondition Failed', { 'Content-Type' => 'text/plain' }, $msg]);
+		    
+		    return;
+		}
+		$req->respond([HTTP_OK, status_message(HTTP_OK), { 'Content-Type' => 'text/plain' }, 'OK']);
+
+		$self->{_sonos}->{sid2dev}->{$sid}->handleNotify($sid, $req->content);
 	    }
-	    $req->respond([200, 'OK', { 'Content-Type' => 'text/plain' }, 'OK']);
+	    elsif($req->method eq qq(GET)) {
+		my @path = $req->url->path_segments;
+		shift(@path);
 
-	    $self->{_sonos}->{sid2dev}->{$sid}->handleNotify($sid, $req->content);
+		if($path[0] eq qq(speak)) {
+		    my $cacheid = pop(@path);
+
+		    use Data::Dumper;
+		    $self->{_sonos}->{logger}->notice("=> $cacheid");
+		    
+		    my $fn = $self->{_sonos}->{speak}->cachedir."/$cacheid.mp3";
+		    if(-e $fn && open MP3, "$fn") {
+			$req->respond ({ content => ['audio/mpeg', do { local $/; <MP3> }] });
+		    }
+		    else {
+			$req->respond([HTTP_NOT_FOUND, status_message(HTTP_NOT_FOUND), { 'Content-Type' => 'text/plain' }, "Cache ID not found: $cacheid"]);
+		    }
+		}
+		else {
+		    $req->respond([HTTP_BAD_REQUEST, status_message(HTTP_BAD_REQUEST), { 'Content-Type' => 'text/plain' }, "Unknown request: $path[0]"]);
+		}
+	    }
+	    else {
+		$req->respond([HTTP_INTERNAL_SERVER_ERROR, status_message(HTTP_INTERNAL_SERVER_ERROR), { 'Content-Type' => 'text/plain' }, 'Method unavailable: '.$req->method]);
+	    }
 	},);
     $self->{_sonos}->{logger}->notice("listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
 
@@ -88,6 +119,11 @@ sub new {
     return $self;
 }
 
+sub speak {
+    my $self = shift;
+
+    return $self->{_sonos}->{speak};
+}
 
 sub search {
     die;
