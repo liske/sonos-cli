@@ -38,6 +38,7 @@
 package Net::UPnP::SONOS::Speak;
 
 use Speech::Google::TTS;
+use Digest;
 use File::Basename;
 use File::Path qw(make_path);
 use Fcntl;
@@ -80,6 +81,9 @@ sub new($) {
     tie(%cache, 'NDBM_File', "$self->{cachedir}/content-$self->{lang}", O_RDWR|O_CREAT, 0666);
     $self->{cache} = \%cache;
 
+    $self->{digest} = Digest->new(qq(MD5));
+    $self->{m3u} = { };
+
     return $self;
 }
 
@@ -100,19 +104,38 @@ sub mperr($) {
 sub cachedir {
     my $self = shift;
 
-    return "$self->{_sonos}->{cdir}/lang-$self->{_sonos}->{lang}";
+    return $self->{langdir};
+}
+
+sub pls {
+    my $self = shift;
+    my $dig = shift;
+
+    print "> $dig => (".join(', ', @{ $self->{m3u}->{$dig} }).")\n";
+    return @{ $self->{m3u}->{$dig} } if(exists($self->{m3u}->{$dig}));
+    print "NOK\n";
+    return ();
 }
 
 sub say {
     my $self = shift;
-    my @text = map { lc } @_;
+    my @text = map {
+	s/[\\|*~<>^\n\(\)\[\]\{\}[:cntrl:]]/ /g;
+	s/\s+/ /g;
+	s/^\s|\s$//g;
+
+	lc;
+    } @_;
+
+    $self->{digest}->reset;
+    $self->{digest}->add(join("\n", @text));
+    my $dig = $self->{digest}->hexdigest;
+
+#    return $dig if(exists($self->{m3u}->{$dig}));
 
     my @mp3list;
     for (@text) {
 	# Split input text to comply with google tts requirements #
-	s/[\\|*~<>^\n\(\)\[\]\{\}[:cntrl:]]/ /g;
-	s/\s+/ /g;
-	s/^\s|\s$//g;
 	return if (!length);
 
 	$_ .= '.' unless (/^.+[.,?!:;]$/);
@@ -151,7 +174,9 @@ sub say {
 	}
     }
 
-    return @mp3list;
+    print "MP3LIST: ".join('-', @mp3list),"\n";
+    $self->{m3u}->{$dig} = \@mp3list;
+    return $dig;
 }
 
 1;

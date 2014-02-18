@@ -94,15 +94,27 @@ sub new {
 		if($path[0] eq qq(speak)) {
 		    my $cacheid = pop(@path);
 
-		    use Data::Dumper;
-		    $self->{_sonos}->{logger}->notice("=> $cacheid");
+		    if($cacheid =~ /^tts_/) {
+			use Data::Dumper;
+			$self->{_sonos}->{logger}->notice("=> $cacheid");
 		    
-		    my $fn = $self->{_sonos}->{speak}->cachedir."/$cacheid.mp3";
-		    if(-e $fn && open MP3, "$fn") {
-			$req->respond ({ content => ['audio/mpeg', do { local $/; <MP3> }] });
+			my $fn = $self->{_sonos}->{speak}->cachedir()."/$cacheid.mp3";
+			if(-e $fn && open MP3, "$fn") {
+			    $req->respond ({ content => ['audio/mpeg', do { local $/; <MP3> }] });
+			}
+			else {
+			    $req->respond([HTTP_NOT_FOUND, status_message(HTTP_NOT_FOUND), { 'Content-Type' => 'text/plain' }, "Cache ID not found: $cacheid"]);
+			}
 		    }
 		    else {
-			$req->respond([HTTP_NOT_FOUND, status_message(HTTP_NOT_FOUND), { 'Content-Type' => 'text/plain' }, "Cache ID not found: $cacheid"]);
+			my $localip = pop(@path);
+
+			my $data = '';
+			foreach my $cid ($self->{_sonos}->{speak}->pls($cacheid)) {
+			    $data .= "http://$localip:".$self->{_sonos}->{httpd}->port."/speak/$cid\r\n";
+			}
+			print "|| $data\n";
+			$req->respond([HTTP_OK, status_message(HTTP_OK), { 'Content-Type' => 'audio/mpegurl' }, $data]);
 		    }
 		}
 		else {
@@ -117,6 +129,12 @@ sub new {
 
     bless $self, $class;
     return $self;
+}
+
+sub httpd {
+    my $self = shift;
+
+    return $self->{_sonos}->{httpd};
 }
 
 sub speak {

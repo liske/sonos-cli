@@ -418,13 +418,15 @@ my $selector = '*';
 	handler => sub {
 	    my $fh = shift;
 
-	    my @cids = $sonos->speak->say(@_);
-	    print "=> ".join(', ', @cids),"\n";
+	    my $digest = $sonos->speak->say(@_);
 	    each_group($selector, sub {
 		my $group = shift;
 
-#		$group->say(@cids);
-#		$group->avtPlay;
+		my $uri = 'x-rincon-mp3radio://'.$group->getLocalIP.':'.$sonos->httpd->port.'/speak/'.$group->getLocalIP."/$digest";
+    $main::logger->info("> $uri");
+
+		$group->avtURI($uri);
+		$group->avtPlay;
 	    });
 
 	    print $fh retval(HTTP_OK, 'OK');
