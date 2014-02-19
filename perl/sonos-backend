@@ -431,7 +431,7 @@ my $selector = '*';
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
-	args => [ undef ],
+	args => [ qr/.+/, undef ],
 	class => qq(group),
 	descr => qq(Playback an URI.),
     },
@@ -509,12 +509,14 @@ my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
 
 	    my $e = 0;
 	    if(exists($cref->{args})) {
-#		if($#args != $#{ $cref->{args} }) {
-#		    print $fh retval(HTTP_BAD_REQUEST, 'Invalid argument count!', undef)."\n";
-#		    $e++;
-#		}
-#		else {
-		{
+		my $c = $#{ $cref->{args} };
+		my $v = (defined(($cref->{args}->[$c])) ? 0 : 1);
+
+		if($#args < $c - $v || (!$v && $#args > $c - $v)) {
+		    print $fh retval(HTTP_BAD_REQUEST, 'Invalid argument count!', undef)."\n";
+		    $e++;
+		}
+		else {
 		    foreach my $i (0 .. $#args) {
 			last unless(defined($args[$i]));
 
