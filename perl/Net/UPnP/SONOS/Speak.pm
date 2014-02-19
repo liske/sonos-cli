@@ -107,14 +107,28 @@ sub cachedir {
     return $self->{langdir};
 }
 
-sub pls {
+sub open {
     my $self = shift;
     my $dig = shift;
 
-    print "> $dig => (".join(', ', @{ $self->{m3u}->{$dig} }).")\n";
-    return @{ $self->{m3u}->{$dig} } if(exists($self->{m3u}->{$dig}));
-    print "NOK\n";
-    return ();
+    unless(exists(($self->{m3u}->{$dig}))) {
+	$self->{_sonos}->{logger}->notice("unknown digest '$dig'");
+	return undef;
+    }
+
+    my @files = @{ $self->{m3u}->{$dig} };
+
+    if($#files == 0) {
+	my $fh;
+
+	unless(open($fh, '<', "$self->{langdir}/$files[0]")) {
+	    $self->{_sonos}->{logger}->notice("failed to open cached file '$files[0]': $!");
+	    return undef;
+	}
+	return $fh;
+    }
+
+    return undef;
 }
 
 sub say {
@@ -164,17 +178,14 @@ sub say {
 		if (!$response->is_success) {
 		    $self->{_sonos}->{logger}->warn("Failed to fetch speech data.");
 		} else {
-		    my $cid = basename($mp3_name);
-		    $cid =~ s/\.mp3$//i;
-
-		    $self->{cache}->{$line} = $cid;
-		    push(@mp3list, $cid);
+		    my $fn = basename($mp3_name);
+		    $self->{cache}->{$line} = $fn;
+		    push(@mp3list, $fn);
 		}
 	    }
 	}
     }
 
-    print "MP3LIST: ".join('-', @mp3list),"\n";
     $self->{m3u}->{$dig} = \@mp3list;
     return $dig;
 }
