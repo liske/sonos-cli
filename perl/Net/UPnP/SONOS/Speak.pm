@@ -127,6 +127,15 @@ sub open {
 	}
 	return $fh;
     }
+    else {
+	my $fh;
+
+	unless(open($fh, '-|', 'cat', map { "$self->{langdir}/$_" } @files)) {
+	    $self->{_sonos}->{logger}->notice("failed to fork cat: $!");
+	    return undef;
+	}
+	return $fh;
+    }
 
     return undef;
 }
