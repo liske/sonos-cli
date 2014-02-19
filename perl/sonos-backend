@@ -423,7 +423,6 @@ my $selector = '*';
 		my $group = shift;
 
 		my $uri = 'x-rincon-mp3radio://'.$group->getLocalIP.':'.$sonos->httpd->port."/speak/$digest";
-    $main::logger->info("> $uri");
 
 		$group->avtURI($uri);
 		$group->avtPlay;
