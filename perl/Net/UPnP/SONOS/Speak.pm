@@ -154,7 +154,7 @@ sub say {
     $self->{digest}->add(join("\n", @text));
     my $dig = $self->{digest}->hexdigest;
 
-#    return $dig if(exists($self->{m3u}->{$dig}));
+    return $dig if(exists($self->{m3u}->{$dig}));
 
     my @mp3list;
     for (@text) {
