@@ -65,13 +65,23 @@ sub get {
     unless(exists($syntax{$opt})) {
 	my @c = caller;
 	$_logger->warn("package $c[0] ($c[1]:$c[2]) requests unknown option '$opt'");
+	return undef;
     }
+
+    return undef unless(exists($config{$opt}));
+
+    return $config{$opt};
 }
 
 sub load($) {
     my $fn = shift || '/etc/sonos-cli.conf';
-    my %rqo = map { $syntax{$_}->{rq} } keys %syntax;
 
+    die "could not read config file '$fn'\n" unless(-r $fn);
+
+    eval `cat "$fn"`;
+    die "$@\n" if($@);
+
+    my %rqo = map { $syntax{$_}->{rq} } keys %syntax;
     foreach my $opt (keys %config) {
 	unless(exists($syntax{$opt})) {
 	    $_logger->warn("ignoring unknown option '$opt'");
@@ -79,10 +89,12 @@ sub load($) {
 	}
 
 	delete($rqo{$opt});
-	
+
+	die "invalid option '$opt' - does not match $syntax{$opt}->{re}\n"
+	    unless($syntax{$opt}->{re} =~ $config{$opt});
     }
 
-    die("required options are unset: ".join(', ', keys %rgo)) "\n" if(scalar keys %rqo);
+    die("required options not configured: ".join(', ', keys %rgo)) "\n" if(scalar keys %rqo);
 }
 
 sub register($$$) {
