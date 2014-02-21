@@ -40,12 +40,19 @@ require Exporter;
 our @ISA = qw(Exporter);
 
 our @EXPORT_OK = qw(
+    SONOSCFG_SONOS_IPCPORT,
+    SONOSCFG_SONOS_HTTPDPORT,
+
     SONOSCFG_SPEAK_LANG,
     SONOSCFG_SPEAK_CACHEDIR,
     SONOSCFG_SPEAK_TIMEOUT,
     SONOSCFG_SPEAK_GOOGLEURL,
 );
 our %EXPORT_TAGS = (
+    sonos => [qw(
+        SONOSCFG_SONOS_IPCPORT,
+        SONOSCFG_SONOS_HTTPDPORT,
+    )],
     speak => [qw(
         SONOSCFG_SPEAK_LANG,
         SONOSCFG_SPEAK_CACHEDIR,
