@@ -51,16 +51,16 @@ our @EXPORT_OK = qw(
     SONOSCFG_SPEAK_GOOGLEURL,
 );
 our %EXPORT_TAGS = (
-    sonos => [qw(
+    SONSO => [qw(
         SONOSCFG_SONOS_IPCPORT
         SONOSCFG_SONOS_HTTPDPORT
     )],
 
-    zoneplayer => [qw(
+    ZonePlayer => [qw(
         SONOSCFG_ZONEPLAYER_REFRESH
     )],
 
-    speak => [qw(
+    Speak => [qw(
         SONOSCFG_SPEAK_LANG
         SONOSCFG_SPEAK_CACHEDIR
         SONOSCFG_SPEAK_TIMEOUT
