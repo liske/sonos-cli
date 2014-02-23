@@ -26,6 +26,7 @@ package Net::UPnP::SONOS::ZonePlayer;
 
 use Net::UPnP::SONOS;
 use Net::UPnP::SONOS::Properties qw(:keys);
+use Net::UPnP::SONOS::Config;
 use Log::Any;
 
 use constant {
@@ -44,6 +45,10 @@ use Net::UPnP::Device;
 require Exporter;
 our @ISA = qw(Net::UPnP::Device Exporter);
 
+sub config {
+    sonos_config_register(qq(ZonePlayer/Refresh), qr/^\d+/, 0);
+}
+
 sub new($$) {
     my ($class, $sonos, $httpd) = @_;
     my $self = $class->SUPER::new();
@@ -51,7 +56,7 @@ sub new($$) {
     $self->{_sonos}->{sonos} = $sonos;
     $self->{_sonos}->{httpd} = $httpd;
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
-    $self->{_sonos}->{refresh} = 900;
+    $self->{_sonos}->{refresh} = sonos_config_get(qq(ZonePlayer/Refresh));
 
     $self->{_sonos}->{initialized} = 0;
     $self->{_sonos}->{services} = { };

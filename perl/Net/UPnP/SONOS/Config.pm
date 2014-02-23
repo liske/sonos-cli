@@ -24,13 +24,6 @@
 
 package Net::UPnP::SONOS::Properties;
 
-use constant {
-    SONOSCFG_SPEAK_LANG                => qq(Speak/Lang),
-    SONOSCFG_SPEAK_CACHEDIR            => qq(Speak/CacheDir),
-    SONOSCFG_SPEAK_TIMEOUT             => qq(Speak/TimeOut),
-    SONOSCFG_SPEAK_GOOGLEURL           => qq(Speak/GoogleURL),
-};
-
 use Log::Any;
 
 use strict;
@@ -38,42 +31,13 @@ use warnings;
 
 require Exporter;
 our @ISA = qw(Exporter);
-
-our @EXPORT_OK = qw(
-    SONOSCFG_SONOS_IPCPORT,
-    SONOSCFG_SONOS_HTTPDPORT,
-
-    SONOSCFG_ZONEPLAYER_REFRESH,
-
-    SONOSCFG_SPEAK_LANG,
-    SONOSCFG_SPEAK_CACHEDIR,
-    SONOSCFG_SPEAK_TIMEOUT,
-    SONOSCFG_SPEAK_GOOGLEURL,
-);
-our %EXPORT_TAGS = (
-    SONSO => [qw(
-        SONOSCFG_SONOS_IPCPORT
-        SONOSCFG_SONOS_HTTPDPORT
-    )],
-
-    ZonePlayer => [qw(
-        SONOSCFG_ZONEPLAYER_REFRESH
-    )],
-
-    Speak => [qw(
-        SONOSCFG_SPEAK_LANG
-        SONOSCFG_SPEAK_CACHEDIR
-        SONOSCFG_SPEAK_TIMEOUT
-        SONOSCFG_SPEAK_GOOGLEURL
-    )]);
-
-1;
+our @EXPORT = qw(sonos_config_get sonos_config_register);
 
 my %config;
 my %syntax;
 my $_logger = Log::Any->get_logger(category => __PACKAGE__);
 
-sub get {
+sub sonos_config_get {
     my $opt = shift;
 
     unless(exists($syntax{$opt})) {
@@ -87,7 +51,7 @@ sub get {
     return $config{$opt};
 }
 
-sub load($) {
+sub sonos_config_load($) {
     my $fn = shift || '/etc/sonos-cli.conf';
 
     die "could not read config file '$fn'\n" unless(-r $fn);
@@ -108,10 +72,10 @@ sub load($) {
 	    unless($syntax{$opt}->{re} =~ $config{$opt});
     }
 
-    die("required options not configured: ".join(', ', keys %rgo)) "\n" if(scalar keys %rqo);
+    die("required options not configured: ".join(', ', keys %rqo)."\n") if(scalar keys %rqo);
 }
 
-sub register($$$) {
+sub sonos_config_register($$$) {
     my $opt = shift;
     my $re = shift;
     my $rq = shift || 0;
@@ -121,3 +85,5 @@ sub register($$$) {
 	rq => $rq,
     };
 }
+
+1;
