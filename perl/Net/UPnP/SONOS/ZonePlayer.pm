@@ -235,8 +235,7 @@ sub avtPlay(;$) {
 	'Speed' => 1,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Play), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Play), \%aargs);
 }
 
 
@@ -247,8 +246,7 @@ sub avtPause() {
 	'InstanceID' => 0,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Pause), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Pause), \%aargs);
 }
 
 
@@ -259,8 +257,7 @@ sub avtStop() {
 	'InstanceID' => 0,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Stop), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Stop), \%aargs);
 }
 
 
@@ -272,8 +269,7 @@ sub avtToggle() {
 	'Speed' => 1,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Toggle), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Toggle), \%aargs);
 }
 
 
@@ -284,8 +280,7 @@ sub avtNext() {
 	'InstanceID' => 0,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Next), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Next), \%aargs);
 }
 
 sub avtPrevious() {
@@ -295,8 +290,7 @@ sub avtPrevious() {
 	'InstanceID' => 0,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Previous), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(Previous), \%aargs);
 }
 
 sub avtJoin {
@@ -310,8 +304,7 @@ sub avtJoin {
 	CurrentURI => $transport,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(SetAVTransportURI), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(SetAVTransportURI), \%aargs);
 }
 
 sub avtLeave {
@@ -322,8 +315,7 @@ sub avtLeave {
 	Speed => 1,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(BecomeCoordinatorOfStandaloneGroup), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(BecomeCoordinatorOfStandaloneGroup), \%aargs);
 }
 
 sub avtURI {
@@ -337,8 +329,7 @@ sub avtURI {
 	CurrentURIMetaData => $meta,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(SetAVTransportURI), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(SetAVTransportURI), \%aargs);
 }
 
 sub avtNextURI {
@@ -352,8 +343,7 @@ sub avtNextURI {
 	NextURIMetaData => $meta,
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(SetNextAVTransportURI), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(SetNextAVTransportURI), \%aargs);
 }
 
 
@@ -391,8 +381,7 @@ sub dpLED() {
 	'DesiredLEDState' => ($state ? 'On' : 'Off'),
     );
 
-    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_DeviceProperties)}->postaction(qq(SetLEDState), \%aargs);
-    return $aresp->getstatuscode;
+    return $self->{_sonos}->{services}->{(SONOS_SRV_DeviceProperties)}->postaction(qq(SetLEDState), \%aargs);
 }
 
 1;
