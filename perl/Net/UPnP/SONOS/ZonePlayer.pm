@@ -357,6 +357,31 @@ sub avtNextURI {
 }
 
 
+sub avtGetPositionInfo {
+    my $self = shift;
+    my $uri = shift;
+    my $meta = shift || '';
+
+    my %aargs = (
+	InstanceID => 0,
+    );
+
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(GetPositionInfo), \%aargs);
+}
+
+sub avtGetTransportInfo {
+    my $self = shift;
+    my $uri = shift;
+    my $meta = shift || '';
+
+    my %aargs = (
+	InstanceID => 0,
+    );
+
+    return $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(GetTransportInfo), \%aargs);
+}
+
+
 sub dpLED() {
     my $self = shift;
     my $state = shift;
