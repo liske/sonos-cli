@@ -34,6 +34,7 @@ use strict;
 use warnings;
 use Carp;
 
+use Net::UPnP::SONOS::Config;
 use Net::UPnP::SONOS::Properties qw(:keys);
 use Net::UPnP::SONOS::Speak;
 use Net::UPnP::SONOS::ZonePlayer;
@@ -59,15 +60,23 @@ our @EXPORT = qw(
 
 our $VERSION = '0.1.0';
 
+BEGIN {
+    sonos_config_register(qq(SONOS/SearchTimeout), qr/^\d+/, 0, 3);
+    sonos_config_register(qq(SONOS/BackendPort), qr/^\d+/, 0, 1401);
+}
+
 sub new {
     my ($class) = @_;
     my $self = $class->SUPER::new();
 
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{speak} = Net::UPnP::SONOS::Speak->new;
-    $self->{_sonos}->{search_timeout} = 3;
+    $self->{_sonos}->{search_timeout} = sonos_config_get(qq(SONOS/SearchTimeout));
     $self->{_sonos}->{sid2dev} = { };
-    $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new(allowed_methods => [qw(NOTIFY GET)]);
+    $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new(
+	allowed_methods => [qw(NOTIFY GET)],
+	port => sonos_config_get(qq(SONOS/BackendPort)),
+	);
     $self->{_sonos}->{httpd}->reg_cb (
 	request => sub {
 	    my ($httpd, $req) = @_;
