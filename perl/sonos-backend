@@ -47,6 +47,9 @@ use warnings;
 BEGIN {
     $INC{'Mo/builder.pm'} = 1;
     $INC{'Mo/default.pm'} = 1;
+
+    sonos_config_register(qq(sonos-backend/CtrlListenAddr), qr/./, qq(Control socket bind address.), 0, '0.0.0.0');
+    sonos_config_register(qq(sonos-backend/CtrlListenPort), qr/^\d+$/, qq(Control socket bind tcp port.), 0, 1400);
 }
 
 $0 = 'sonos-backend';
@@ -486,7 +489,7 @@ foreach my $cmd (keys %ctrl_cmds) {
     $ctrl_cmap{lc($cmd)} = $cmd;
 }
 
-my $tctrl_sock = tcp_server '0.0.0.0', 1400, sub {
+my $tctrl_sock = tcp_server sonos_config_get(qq(sonos-backend/CtrlListenAddr)), sonos_config_get(qq(sonos-backend/CtrlListenPort)), sub {
     my ($fh, $host, $port) = @_;
 
     $main::logger->info("CTRL[".$fh->fileno."] incoming connection from $host:$port...");
