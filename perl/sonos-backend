@@ -420,6 +420,26 @@ my $selector = '*';
 	descr => qq(Playback an URI.),
     },
 
+    next_uri => {
+	handler => sub {
+	    my $fh = shift;
+	    my $uri = shift;
+	    my $meta = shift;
+
+	    $uri =~ s@^http:@x-rincon-mp3radio:@i;
+	    each_group($selector, sub {
+		my $group = shift;
+
+		$group->avtNextURI($uri, $meta);
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK');
+	},
+	args => [ qr/.{3,}/, qr// ],
+	class => qq(group),
+	descr => qq(Set next playback an URI.),
+    },
+
     say => {
 	handler => sub {
 	    my $fh = shift;

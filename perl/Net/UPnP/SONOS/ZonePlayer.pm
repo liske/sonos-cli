@@ -341,6 +341,21 @@ sub avtURI {
     return $aresp->getstatuscode;
 }
 
+sub avtNextURI {
+    my $self = shift;
+    my $uri = shift;
+    my $meta = shift || '';
+
+    my %aargs = (
+	InstanceID => 0,
+	NextURI => $uri,
+	NextURIMetaData => $meta,
+    );
+
+    my $aresp = $self->{_sonos}->{services}->{(SONOS_SRV_AVTransport)}->postaction(qq(SetNextAVTransportURI), \%aargs);
+    return $aresp->getstatuscode;
+}
+
 
 sub dpLED() {
     my $self = shift;
