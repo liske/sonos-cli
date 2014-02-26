@@ -54,14 +54,12 @@ BEGIN {
 
 $0 = 'sonos-backend';
 
-our $opt_l = '127.0.0.1';
-our $opt_p;
 our $opt_d;
 our $opt_f;
 our $opt_r = '/var/run';
 our $opt_c;
 our $opt_t;
-getopts('l:p:r:dfc:t');
+getopts('r:dfc:t');
 
 my $mypid = $$;
 my @pipe_pids;
