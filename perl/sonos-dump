@@ -1,0 +1,67 @@
+#!/usr/bin/perl
+
+# sonos-cli - Command line interface to control 'Sonos ZonePlayer' 
+#
+# Authors:
+#   Thomas Liske <thomas@fiasko-nw.net>
+#
+# Copyright Holder:
+#   2010 - 2014 (C) Thomas Liske [http://fiasko-nw.net/~thomas/]
+#
+# License:
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this package; if not, write to the Free Software
+#   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+#
+
+use warnings;
+use strict;
+use Net::UPnP::SONOS;
+use File::Temp qw(tempdir);
+
+my $cp = Net::UPnP::ControlPoint->new();
+my $dir = tempdir( 'sonos_XXXXXX', CLEANUP => 0 );
+
+print STDERR "Output directory: $dir\n";
+print STDERR "Scanning for ZonePlayers via UPnP...\n";
+foreach my $dev ($cp->search(st =>'urn:schemas-upnp-org:device:ZonePlayer:1', mx => 3)) {
+    continue unless($dev->getdevicetype() eq 'urn:schemas-upnp-org:device:ZonePlayer:1');
+
+    my $ip = $dev->getlocation();
+    $ip =~ s@http://@@;
+    $ip =~ s@:[^/]+/.+$@@;
+
+    print "[$ip]\n";
+    foreach my $t (qw(modelName modelNumber softwareVersion hardwareVersion serialNum minCompatibleVersion displayVersion extraVersion roomName ampOnTime)) {
+	printf "%20s: %s\n", $t, $dev->getdescription(name => $t);
+    }
+
+    open(OUT, '>', "$dir/$ip.xml");
+    print OUT $dev->getdescription();
+    close(OUT);
+
+    print "            Services: ";
+    my $base = $dev->getlocation();
+    $base =~ s@(http://[^/]+)/.*$@$1@;
+    foreach my $srv ($dev->getservicelist()) {
+	my $id = $srv->getserviceid();
+	$id =~ s/^.+:([^:]+)$/$1/;
+
+	print "$id ";
+	system(qw(wget -q -O), "$dir/$ip $id.xml", $base.$srv->getscpdurl());
+    }
+
+    print "$dir\n\n";
+}
+
+rmdir($dir);
