@@ -59,7 +59,7 @@ sub sonos_config_load($) {
     eval `cat "$fn"`;
     die "$@\n" if($@);
 
-    my %rqo = map { $syntax{$_}->{required}; } keys %syntax;
+    my %rqo = map { ($syntax{$_}->{required} ? ($_, $_) : ()); } keys %syntax;
     foreach my $opt (keys %config) {
 	unless(exists($syntax{$opt})) {
 	    $_logger->warn("ignoring unknown option '$opt'");
@@ -68,8 +68,8 @@ sub sonos_config_load($) {
 
 	delete($rqo{$opt});
 
-	die "invalid option '$opt' - does not match $syntax{$opt}->{re}\n"
-	    unless($syntax{$opt}->{re} =~ $config{$opt});
+	die "bad option $opt='$config{$opt}' - does not match $syntax{$opt}->{regex}\n"
+	    unless($config{$opt} =~ $syntax{$opt}->{regex});
     }
 
     die("required options not configured: ".join(', ', keys %rqo)."\n") if(scalar keys %rqo);
