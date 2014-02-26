@@ -46,7 +46,7 @@ require Exporter;
 our @ISA = qw(Net::UPnP::Device Exporter);
 
 BEGIN {
-    sonos_config_register(qq(ZonePlayer/Refresh), qr/^\d+/, 0, 900);
+    sonos_config_register(qq(ZonePlayer/Refresh), qr/^\d+$/, 0, 900);
 }
 
 sub new($$) {
