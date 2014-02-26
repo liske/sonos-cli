@@ -112,7 +112,7 @@ EOH
 	print "# $descr\n";
 	print "#  Regex   : $syntax{$opt}->{regex}\n";
 	print "#  Required: ", ($syntax{$opt}->{required} ? 'Yes' : 'No'), "\n";
-	print "# \$config{$opt} = ", (exists($config{$opt}) ? $config{$opt} : ''), ";\n\n";
+	print "# \$config{qq($opt)} = ", (exists($config{$opt}) ? $config{$opt} : ''), ";\n\n";
     }
 
     print "1;\n";
