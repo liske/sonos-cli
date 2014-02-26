@@ -49,21 +49,31 @@ use CGI::Util qw(escape);
 use LWP::UserAgent;
 use LWP::ConnCache;
 
+use Net::UPnP::SONOS::Config;
+
 use strict;
 use warnings;
+
+BEGIN {
+    sonos_config_register(qq(Speak/Lang), qr/^\w+/, 1, qq(en));
+    sonos_config_register(qq(Speak/CacheDir), qr/./, 1);
+    sonos_config_register(qq(Speak/Timeout), qr/^\d+$/, 0, 10);
+    sonos_config_register(qq(Speak/GoogleURL), qr/./, 0, qq(http://translate.google.com/translate_tts));
+    sonos_config_register(qq(Speak/UserAgent), qr/./, 0, qq(Mozilla/5.0 (X11; Linux; rv:8.0) Gecko/20100101));
+}
 
 sub new($) {
     my $class = shift;
     my $self = {};
     bless $self, $class;
 
-    $self->{lang} = 'de';
-    $self->{cachedir} = "/srv/heap/readout";
-    $self->{timeout} = '10';
-    $self->{googleurl} = qq(http://translate.google.com/translate_tts);
+    $self->{lang} = sonos_config_get(qq(Speak/Lang));
+    $self->{cachedir} = sonos_config_get(qq(Speak/CacheDir));
+    $self->{timeout} = sonos_config_get(qq(Speak/Timeout));
+    $self->{googleurl} = sonos_config_get(qq(Speak/GoogleURL));
 
     $self->{ua} = LWP::UserAgent->new;
-    $self->{ua}->agent("Mozilla/5.0 (X11; Linux; rv:8.0) Gecko/20100101");
+    $self->{ua}->agent(sonos_config_get(qq(Speak/UserAgent)));
     $self->{ua}->env_proxy;
     $self->{ua}->conn_cache(LWP::ConnCache->new());
     $self->{ua}->timeout($self->{timeout});
