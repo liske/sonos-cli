@@ -61,8 +61,8 @@ our @EXPORT = qw(
 our $VERSION = '0.1.0';
 
 BEGIN {
-    sonos_config_register(qq(SONOS/SearchTimeout), qr/^\d+$/, 0, 3);
-    sonos_config_register(qq(SONOS/BackendPort), qr/^\d+$/, 0, 1401);
+    sonos_config_register(qq(SONOS/SearchTimeout), qr/^\d+$/, qq(Timeout for UPnP device search.), 0, 3);
+    sonos_config_register(qq(SONOS/BackendPort), qr/^\d+$/, qq(Backend HTTP port used for event registration.), 0, 1401);
 }
 
 sub new {

@@ -55,11 +55,11 @@ use strict;
 use warnings;
 
 BEGIN {
-    sonos_config_register(qq(Speak/Lang), qr/^\w+/, 1, qq(en));
-    sonos_config_register(qq(Speak/CacheDir), qr/./, 1);
-    sonos_config_register(qq(Speak/Timeout), qr/^\d+$/, 0, 10);
-    sonos_config_register(qq(Speak/GoogleURL), qr/./, 0, qq(http://translate.google.com/translate_tts));
-    sonos_config_register(qq(Speak/UserAgent), qr/./, 0, qq(Mozilla/5.0 (X11; Linux; rv:8.0) Gecko/20100101));
+    sonos_config_register(qq(Speak/Lang), qr/^\w+/, qq(Language to use for TTS.), 1, qq(en));
+    sonos_config_register(qq(Speak/CacheDir), qr/./, qq(Where to cache audio files.), 1);
+    sonos_config_register(qq(Speak/Timeout), qr/^\d+$/, qq(Timeout used while fetching TTS stuff.), 0, 10);
+    sonos_config_register(qq(Speak/GoogleURL), qr/./, qq(URL of Googles TTS service.), 0, qq(http://translate.google.com/translate_tts));
+    sonos_config_register(qq(Speak/UserAgent), qr/./, qq(User-Agent header to send on TTS queries.), 0, qq(Mozilla/5.0 (X11; Linux; rv:8.0) Gecko/20100101));
 }
 
 sub new($) {
