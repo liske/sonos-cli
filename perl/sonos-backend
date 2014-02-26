@@ -37,6 +37,7 @@ use Log::Dispatch::Screen;
 use Log::Dispatch::Syslog;
 use Net::UPnP::SONOS;
 use Net::UPnP::SONOS::Properties qw(:keys);
+use Net::UPnP::SONOS::Config;
 use Proc::Daemon;
 use Proc::PID::File;
 use POSIX qw(mkfifo F_SETFL O_NONBLOCK EAGAIN);
@@ -55,7 +56,9 @@ our $opt_p;
 our $opt_d;
 our $opt_f;
 our $opt_r = '/var/run';
-getopts('l:p:r:df');
+our $opt_c;
+our $opt_t;
+getopts('l:p:r:dfc:t');
 
 my $mypid = $$;
 my @pipe_pids;
@@ -134,10 +137,12 @@ END {
 	}
 }
 
-#unless(-p $conf{'pipe'}) {
-#    unlink($conf{'pipe'});
-#    mkfifo($conf{'pipe'}, 0770) || die "Failed to setup fifo $conf{status_pipe}: $!\n";
-#}
+if($opt_t) {
+    Net::UPnP::SONOS::Config::sonos_config_template();
+    exit 1;
+}
+
+Net::UPnP::SONOS::Config::sonos_config_load($opt_c);
 
 unless($opt_f) {
     # daemonize

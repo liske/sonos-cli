@@ -75,19 +75,47 @@ sub sonos_config_load($) {
     die("required options not configured: ".join(', ', keys %rqo)."\n") if(scalar keys %rqo);
 }
 
-sub sonos_config_register($$@) {
+sub sonos_config_register($$$@) {
     my $opt = shift;
     my $regex = shift;
+    my $descr = shift;
     my $required = shift || 0;
     my $default = shift;
 
     $syntax{$opt} = {
+	descr => $descr,
 	regex => $regex,
 	required => $required,
     };
-    $config{$opt} = $default;
+    $config{$opt} = $default if(defined($default));
 
     $_logger->warn("register option $opt");
+}
+
+sub sonos_config_template() {
+    print <<EOH;
+# sonos-cli - configuration template
+#
+# This file is a configuration template of the sonos-cli package. The config
+# file is perl code.
+EOH
+
+    my $group = '';
+    foreach my $opt (sort keys %syntax) {
+	if($opt =~ /^(\w+)/ && $1 ne $group) {
+	    print "\n";
+	    $group = $1;
+	}
+
+	my $descr = $syntax{$opt}->{descr};
+	$descr =~ s/\n/\n# /g;
+	print "# $descr\n";
+	print "#  Regex   : $syntax{$opt}->{regex}\n";
+	print "#  Required: ", ($syntax{$opt}->{required} ? 'Yes' : 'No'), "\n";
+	print "# \$config{$opt} = ", (exists($config{$opt}) ? $config{$opt} : ''), ";\n\n";
+    }
+
+    print "1;\n";
 }
 
 1;
