@@ -437,7 +437,7 @@ my $selector = '*';
 	},
 	args => [ qr/.{3,}/, qr// ],
 	class => qq(group),
-	descr => qq(Set next playback an URI.),
+	descr => qq(Set next playback URI.),
     },
 
     say => {
