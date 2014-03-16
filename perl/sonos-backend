@@ -223,6 +223,7 @@ sub each_zone($$) {
 my %ctrl_ctxs;
 my %ctrl_cmds;
 my $selector = '*';
+my %posinfo;
 %ctrl_cmds = (
     select => {
 	handler => sub {
@@ -448,8 +449,32 @@ my $selector = '*';
 	    my $digest = $sonos->speak->say(@_);
 	    each_group($selector, sub {
 		my $group = shift;
+		my $zpid = $group->getShortID();
 
 		my $uri = 'x-rincon-mp3radio://'.$group->getLocalIP.':'.$sonos->httpd->port."/speak/$digest";
+
+		my $ret = $group->avtGetPositionInfo();
+		$posinfo{$zpid} = $ret->getargumentlist;
+
+		my $count;
+		$group->regUpdateStatus(sub {
+		    my $status = shift;
+
+		    if($status->{TransportState}->{val} eq 'PLAYING') {
+			if($count) {
+			    $group->avtStop;
+			    $group->avtURI($posinfo{$zpid}->{TrackURI});
+			    $group->avtPlay;
+
+			    return 0;
+			}
+
+			$count++;
+		    }
+
+		    return 1;
+
+					});
 
 		$group->avtURI($uri);
 		$group->avtPlay;

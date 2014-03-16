@@ -28,6 +28,7 @@ use Net::UPnP::SONOS;
 use Net::UPnP::SONOS::Properties qw(:keys);
 use Net::UPnP::SONOS::Config;
 use Log::Any;
+use XML::Simple;
 
 use constant {
     SONOS_STATUS_OK => 200,
@@ -61,6 +62,8 @@ sub new($$) {
     $self->{_sonos}->{initialized} = 0;
     $self->{_sonos}->{services} = { };
     $self->{_sonos}->{properties} = { };
+    $self->{_sonos}->{status} = { };
+    $self->{_sonos}->{statusCB} = { };
     
     bless $self, $class;
     return $self;
@@ -201,8 +204,43 @@ sub handleNotify($$$) {
 	$v =~ s/\&quot;/\"/g;
 	$v =~ s/\&amp;/\&/g;
 
-	$self->updateProperty($k, $v);
+	if($k eq 'LastChange') {
+	    $self->handleEvent($v);
+	}
+	else {
+	    $self->updateProperty($k, $v);
+	}
     }
+}
+
+sub handleEvent($$) {
+    my ($self, $xml) = @_;
+
+    my $ev = XMLin($xml);
+    foreach my $k (keys %{$ev}) {
+	$self->updateStatus($ev->{$k}) if($k eq 'InstanceID');
+    }
+}
+
+sub updateStatus($$) {
+    my ($self, $status) = @_;
+
+    $self->{_sonos}->{status} = $status;
+    foreach my $cb (keys %{ $self->{_sonos}->{statusCB} }) {
+	delete($self->{_sonos}->{statusCB}->{$cb}) unless(&{ $self->{_sonos}->{statusCB}->{$cb} }($status, $self));
+    }
+}
+
+sub regUpdateStatus($$) {
+    my ($self, $cb) = @_;
+
+    $self->{_sonos}->{statusCB}->{$cb} = $cb;
+}
+
+sub getStatus($) {
+    my $self = shift;
+
+    return $self->{_sonos}->{status};
 }
 
 sub updateProperty($$$) {
