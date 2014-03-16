@@ -182,7 +182,7 @@ sub retval {
 }
 
 sub find_groups($) {
-    my $sel = shift;
+    my $sel = shift || '*';
     my %groups = $sonos->getGroups();
     my %zones = $sonos->getZones();
     my @search = ($sel eq '*' ? keys %groups : split(/,/, $sel));
@@ -211,7 +211,7 @@ sub find_zones($) {
 }
 
 sub each_zone($$) {
-    my $sel = shift;
+    my $sel = shift || '*';
     my $cb = shift;
 
     my %zones = find_zones($sel);
@@ -222,14 +222,14 @@ sub each_zone($$) {
 
 my %ctrl_ctxs;
 my %ctrl_cmds;
-my $selector = '*';
+my %selectors;
 my %posinfo;
 %ctrl_cmds = (
     select => {
 	handler => sub {
 	    my $fh = shift;
 	    
-	    $selector = shift;
+	    $selectors{$fh} = shift;
 
 	    print $fh retval(HTTP_OK, 'OK');
 	},
@@ -246,7 +246,7 @@ my %posinfo;
 
 	    my $led = ($v =~ /0|off/ ? 0 : 1);
 
-	    each_zone($selector, sub {
+	    each_zone($selectors{$fh}, sub {
 		shift->dpLED($led);
 	    });
 
@@ -282,7 +282,7 @@ my %posinfo;
 	    my $fh = shift;
 
 	    my %members;
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		my $group_zpid = shift->getShortID();
 		$members{ ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName) } = [map { $_->getShortID() } @{ $groups{$group_zpid} }];
 	    });
@@ -298,7 +298,7 @@ my %posinfo;
 	handler => sub {
 	    my $fh = shift;
 
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		shift->avtPlay();
 	    });
 
@@ -312,7 +312,7 @@ my %posinfo;
 	handler => sub {
 	    my $fh = shift;
 
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		shift->avtPause();
 	    });
 
@@ -326,7 +326,7 @@ my %posinfo;
 	handler => sub {
 	    my $fh = shift;
 
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		shift->avtStop();
 	    });
 
@@ -340,7 +340,7 @@ my %posinfo;
 	handler => sub {
 	    my $fh = shift;
 
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		shift->avtNext();
 	    });
 
@@ -354,7 +354,7 @@ my %posinfo;
 	handler => sub {
 	    my $fh = shift;
 
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		shift->avtPrevious();
 	    });
 
@@ -370,11 +370,11 @@ my %posinfo;
 	    my $mid = shift;
 
 	    if($mid eq '*') {
-		my @groups = find_groups($selector);
+		my @groups = find_groups($selectors{$fh});
 		$mid = (shift @groups)->getShortID;
 	    }
 
-	    each_zone($selector, sub {
+	    each_zone($selectors{$fh}, sub {
 		my $dev = shift;
 		$dev->avtJoin($mid)
 		    if($dev->getShortID ne $mid)
@@ -391,7 +391,7 @@ my %posinfo;
 	handler => sub {
 	    my $fh = shift;
 
-	    each_zone($selector, sub {
+	    each_zone($selectors{$fh}, sub {
 		shift->avtLeave();
 	    });
 
@@ -408,7 +408,7 @@ my %posinfo;
 	    my $meta = shift;
 
 	    $uri =~ s@^http:@x-rincon-mp3radio:@i;
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		my $group = shift;
 
 		$group->avtURI($uri, $meta);
@@ -429,7 +429,7 @@ my %posinfo;
 	    my $meta = shift;
 
 	    $uri =~ s@^http:@x-rincon-mp3radio:@i;
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		my $group = shift;
 
 		$group->avtNextURI($uri, $meta);
@@ -447,7 +447,7 @@ my %posinfo;
 	    my $fh = shift;
 
 	    my $digest = $sonos->speak->say(@_);
-	    each_group($selector, sub {
+	    each_group($selectors{$fh}, sub {
 		my $group = shift;
 		my $zpid = $group->getShortID();
 
@@ -516,6 +516,7 @@ my %posinfo;
     exit => {
 	handler => sub {
 	    my $fh = shift;
+	    delete($selectors{$fh});
 
 	    print $fh retval(HTTP_OK, qq(OK));
 
