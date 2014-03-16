@@ -281,10 +281,11 @@ my $selector = '*';
 	    my $fh = shift;
 
 	    my %members;
-	    my %groups = $sonos->getGroups();
-	    foreach my $group_zpid (keys %groups) {
+	    each_group($selector, sub {
+		my $group_zpid = shift->getShortID();
 		$members{ ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName) } = [map { $_->getShortID() } @{ $groups{$group_zpid} }];
-	    }
+	    });
+
 	    print $fh retval(HTTP_OK, 'OK', \%members);
 	},
 	descr => qq(Get group members.),
