@@ -453,8 +453,9 @@ my %posinfo;
 
 		my $uri = 'x-rincon-mp3radio://'.$group->getLocalIP.':'.$sonos->httpd->port."/speak/$digest";
 
-		my $ret = $group->avtGetPositionInfo();
+		my $ret = $group->avtGetPositionInfo;
 		$posinfo{$zpid} = $ret->getargumentlist;
+		my $oldstatus = $group->getStatus;
 
 		my $count;
 		$group->regUpdateStatus(sub {
@@ -464,7 +465,7 @@ my %posinfo;
 			if($count) {
 			    $group->avtStop;
 			    $group->avtURI($posinfo{$zpid}->{TrackURI});
-			    $group->avtPlay;
+			    $group->avtPlay if($oldstatus->{TransportState}->{val} eq 'PLAYING');
 
 			    return 0;
 			}
