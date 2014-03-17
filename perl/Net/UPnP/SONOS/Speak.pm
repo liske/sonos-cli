@@ -167,40 +167,32 @@ sub say {
     return $dig if(exists($self->{m3u}->{$dig}));
 
     my @mp3list;
-    for (@text) {
-	# Split input text to comply with google tts requirements #
-	return if (!length);
-
-	$_ .= '.' unless (/^.+[.,?!:;]$/);
-	@text = /.{1,100}[.,?!:;]|.{1,100}\s/g;
-
-	foreach my $line (@text) {
-	    # Get speech data from google and save them in temp files #
-	    $line =~ s/^\s+|\s+$//g;
-	    next if (length($line) == 0);
-
-	    if($self->{cache}->{$line}) {
-		push(@mp3list, $self->{cache}->{$line});
-	    }
-	    else {
-		$line = escape($line);
+    foreach my $line (@text) {
+	# Get speech data from google and save them in temp files #
+	$line =~ s/^\s+|\s+$//g;
+	next if (length($line) == 0);
+	
+	if($self->{cache}->{$line}) {
+	    push(@mp3list, $self->{cache}->{$line});
+	}
+	else {
+	    $line = escape($line);
 	    
-		my ($mp3_fh, $mp3_name) = tempfile(
-		    "tts_XXXXXX",
-		    DIR    => $self->{langdir},
-		    SUFFIX => ".mp3",
-		    UNLINK => 0
-		    );
-
-		my $request = HTTP::Request->new(GET => "$self->{googleurl}?tl=$self->{lang}&q=$line");
-		my $response = $self->{ua}->request($request, $mp3_name);
-		if (!$response->is_success) {
-		    $self->{_sonos}->{logger}->warn("Failed to fetch speech data.");
-		} else {
-		    my $fn = basename($mp3_name);
-		    $self->{cache}->{$line} = $fn;
-		    push(@mp3list, $fn);
-		}
+	    my ($mp3_fh, $mp3_name) = tempfile(
+		"tts_XXXXXX",
+		DIR    => $self->{langdir},
+		SUFFIX => ".mp3",
+		UNLINK => 0
+		);
+	    
+	    my $request = HTTP::Request->new(GET => "$self->{googleurl}?tl=$self->{lang}&q=$line");
+	    my $response = $self->{ua}->request($request, $mp3_name);
+	    if (!$response->is_success) {
+		$self->{_sonos}->{logger}->warn("Failed to fetch speech data.");
+	    } else {
+		my $fn = basename($mp3_name);
+		$self->{cache}->{$line} = $fn;
+		push(@mp3list, $fn);
 	    }
 	}
     }
