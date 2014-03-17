@@ -272,7 +272,15 @@ my %posinfo;
 	handler => sub {
 	    my $fh = shift;
 
-	    print $fh = "ERROR| n/a, yet\n";
+	    my %stati;
+	    each_group($selectors{$fh}, sub {
+		my $group = shift;
+		my $group_zpid = $group->getShortID;
+		$stati{ $group_zpid } = \%{ $group->getStatus };
+		$stati{ $group_zpid }-> {ZoneGroupName} = ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName);
+	    });
+
+	    print $fh retval(HTTP_OK, 'OK', \%stati);
 	},
 	descr => qq(Get zone status.),
     },
@@ -283,7 +291,7 @@ my %posinfo;
 
 	    my %members;
 	    each_group($selectors{$fh}, sub {
-		my $group_zpid = shift->getShortID();
+		my $group_zpid = shift->getShortID;
 		$members{ ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName) } = [map { $_->getShortID() } @{ $groups{$group_zpid} }];
 	    });
 
