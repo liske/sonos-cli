@@ -250,7 +250,6 @@ SSDP_SEARCH_MSG
     my $ssdp_sock;
     socket($ssdp_sock, AF_INET, SOCK_DGRAM, getprotobyname('udp'));
     my $ssdp_mcast = sockaddr_in($Net::UPnP::SSDP_PORT, inet_aton($Net::UPnP::SSDP_ADDR));
-    send($ssdp_sock, $ssdp_header, 0, $ssdp_mcast);
 
     $self->{_sonos}->{search}->{io} = AnyEvent->io(fh => $ssdp_sock, poll => 'r', cb => sub {
 	my $ssdp_res_msg;
@@ -302,6 +301,8 @@ SSDP_SEARCH_MSG
 	# call callback
 	&{$args{cb}}($self) if(defined($args{cb}));
     });
+
+    send($ssdp_sock, $ssdp_header, 0, $ssdp_mcast);
 }
 
 sub regSrvSubs($$$) {
