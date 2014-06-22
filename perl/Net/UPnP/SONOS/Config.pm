@@ -63,7 +63,7 @@ sub sonos_config_load($) {
     foreach my $opt (keys %config) {
 	unless(exists($syntax{$opt})) {
 	    $_logger->warn("ignoring unknown option '$opt'");
-	    continue;
+	    next;
 	}
 
 	delete($rqo{$opt});
