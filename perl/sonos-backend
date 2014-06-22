@@ -204,11 +204,9 @@ unless($opt_f) {
 
 my $json = JSON::Any->new();
 my $sonos = Net::UPnP::SONOS->new();
-my %groups;
-my %zones;
 $sonos->search(cb => sub {
-    %groups = $sonos->getGroups();
-    %zones = $sonos->getZones();
+    my %groups = $sonos->getGroups();
+    my %zones = $sonos->getZones();
 
     $main::logger->notice("topology update, found ".(scalar keys %zones)." zones in ".(scalar keys %groups)." groups");
 });
@@ -240,8 +238,11 @@ sub each_group($$) {
     my $sel = shift;
     my $cb = shift;
 
+    my %groups = $sonos->getGroups();
+    my %zones = $sonos->getZones();
+
     foreach my $dev (find_groups($sel)) {
-	&$cb($dev);
+	&$cb(\%groups, \%zones, $dev);
     }
 }
 
@@ -255,9 +256,12 @@ sub each_zone($$) {
     my $sel = shift || '*';
     my $cb = shift;
 
-    my %zones = find_zones($sel);
-    foreach my $dev (values %zones) {
-	&$cb($dev);
+    my %groups = $sonos->getGroups();
+    my %zones = $sonos->getZones();
+
+    my %z = find_zones($sel);
+    foreach my $dev (values %z) {
+	&$cb(\%groups, \%zones, $dev);
     }
 }
 
@@ -288,6 +292,9 @@ my %posinfo;
 	    my $led = ($v =~ /0|off/ ? 0 : 1);
 
 	    each_zone($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
+
 		shift->dpLED($led);
 	    });
 
@@ -315,10 +322,12 @@ my %posinfo;
 
 	    my %stati;
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
 		my $group = shift;
 		my $group_zpid = $group->getShortID;
 		$stati{ $group_zpid } = \%{ $group->getStatus };
-		$stati{ $group_zpid }-> {ZoneGroupName} = ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName);
+		$stati{ $group_zpid }-> {ZoneGroupName} = ${ $groups->{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName);
 	    });
 
 	    print $fh retval(HTTP_OK, 'OK', \%stati);
@@ -332,8 +341,10 @@ my %posinfo;
 
 	    my %members;
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
 		my $group_zpid = shift->getShortID;
-		$members{ ${ $groups{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName) } = [map { $_->getShortID() } @{ $groups{$group_zpid} }];
+		$members{ ${ $groups->{$group_zpid} }[0]->getProperty(SONOS_ZoneGroupName) } = [map { $_->getShortID() } @{ $groups->{$group_zpid} }];
 	    });
 
 	    print $fh retval(HTTP_OK, 'OK', \%members);
@@ -348,6 +359,9 @@ my %posinfo;
 	    my $fh = shift;
 
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
+
 		shift->avtPlay();
 	    });
 
@@ -362,6 +376,9 @@ my %posinfo;
 	    my $fh = shift;
 
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
+
 		shift->avtPause();
 	    });
 
@@ -376,6 +393,9 @@ my %posinfo;
 	    my $fh = shift;
 
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
+
 		shift->avtStop();
 	    });
 
@@ -390,6 +410,9 @@ my %posinfo;
 	    my $fh = shift;
 
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
+
 		shift->avtNext();
 	    });
 
@@ -404,6 +427,9 @@ my %posinfo;
 	    my $fh = shift;
 
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
+
 		shift->avtPrevious();
 	    });
 
@@ -424,6 +450,9 @@ my %posinfo;
 	    }
 
 	    each_zone($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
+
 		my $dev = shift;
 		$dev->avtJoin($mid)
 		    if($dev->getShortID ne $mid)
@@ -441,6 +470,9 @@ my %posinfo;
 	    my $fh = shift;
 
 	    each_zone($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
+
 		shift->avtLeave();
 	    });
 
@@ -458,6 +490,8 @@ my %posinfo;
 
 	    $uri =~ s@^http:@x-rincon-mp3radio:@i;
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
 		my $group = shift;
 
 		$group->avtURI($uri, $meta);
@@ -479,6 +513,8 @@ my %posinfo;
 
 	    $uri =~ s@^http:@x-rincon-mp3radio:@i;
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
 		my $group = shift;
 
 		$group->avtNextURI($uri, $meta);
@@ -497,6 +533,8 @@ my %posinfo;
 
 	    my $digest = $sonos->speak->say(@_);
 	    each_group($selectors{$fh}, sub {
+		my $groups = shift;
+		my $zones = shift;
 		my $group = shift;
 		my $zpid = $group->getShortID();
 
