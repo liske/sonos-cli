@@ -206,8 +206,12 @@ my $json = JSON::Any->new();
 my $sonos = Net::UPnP::SONOS->new();
 my %groups;
 my %zones;
-$sonos->search;
-$main::logger->notice("trigged topology update");
+$sonos->search(cb => sub {
+    %groups = $sonos->getGroups();
+    %zones = $sonos->getZones();
+
+    $main::logger->notice("topology update, found ".(scalar keys %zones)." zones in ".(scalar keys %groups)." groups");
+});
 
 sub retval {
     return $json->encode(

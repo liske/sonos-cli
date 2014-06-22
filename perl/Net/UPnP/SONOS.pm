@@ -122,32 +122,38 @@ sub new {
     $self->{_sonos}->{logger}->notice("httpd listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
     $self->{_sonos}->{logger}->notice("ssdp listening on ".$self->{_sonos}->{httpd}->host.":$Net::UPnP::SSDP_PORT...");
 
+    $self->{_sonos}->{msearch_cb} = sub {};
     $self->{_sonos}->{ssdp} = AnyEvent::Handle::UDP->new(
-	bind => [ $self->{_sonos}->{httpd}->host, $Net::UPnP::SSDP_PORT ],
+	bind => [ $self->{_sonos}->{httpd}->host, $self->{_sonos}->{httpd}->port ],
 	on_recv => sub {
 	    my $msg = shift;
 	    $msg =~ /^(\S+)\s/;
 	    my $method = $1;
 
 	    if($method eq 'HTTP/1.1' &&
-	       $msg =~ m/USN: (uuid:RINCON_.+)01400::urn:schemas-upnp-org:device:ZonePlayer:1\r/i) {
+	       $msg =~ m/USN: uuid:RINCON_(.+)01400::urn:schemas-upnp-org:device:ZonePlayer:1\r/i) {
 	    
 		my $zpid = $1;
 		unless(exists($self->{_sonos}->{search}->{zps}->{$zpid})) {
-		    $self->{_sonos}->{logger}->info("discovered unknown device by SSDP M-SEARCH: ", $zpid);
-		    $self->extract_ssdp($msg);
+		    $self->{_sonos}->{logger}->info("discovered unknown device by SSDP M-SEARCH:", $zpid);
+
+		    # make device identification short time later
+		    $self->{_sonos}->{msearch_res}->{$zpid} = $msg;
+		    $self->{_sonos}->{msearch_w} = AnyEvent->timer(
+			after => 1,
+			cb => sub {
+			    $self->{_sonos}->{logger}->info('handle', (scalar keys %{ $self->{_sonos}->{msearch_res} }), 'new discovered devices');
+			    foreach my $msg (values %{ $self->{_sonos}->{msearch_res} }) {
+				$self->extract_ssdp($msg);
+			    }
+			    $self->{_sonos}->{msearch_res} = {};
+			    $self->{_sonos}->{msearch_w} = undef;
+			    &{$self->{_sonos}->{msearch_cb}};
+			}
+		    );
 		}
 	    }
-	    elsif($method eq 'NOTIFY' &&
-	       $msg =~ m/USN: (uuid:RINCON_.+)01400::urn:schemas-upnp-org:device:ZonePlayer:1\r/i) {
-	    
-		my $zpid = $1;
-		unless(exists($self->{_sonos}->{search}->{zps}->{$zpid})) {
-		    $self->{_sonos}->{logger}->info("discovered unknown device by SSDP NOTIFY: ", $zpid);
-		    $self->extract_ssdp($msg);
-		}
-	    }
-	    elsif($method ne 'M-SEARCH') {
+	    else {
 		$self->{_sonos}->{logger}->info('unhandled SSDP message: ', $msg);
 	    }
     });
@@ -214,12 +220,18 @@ sub search {
     my %args = (
 	st => 'urn:schemas-upnp-org:device:ZonePlayer:1',
 	mx => 60,
+	iv => 1800,
 	@_,
     );
-		
-    $self->{_sonos}->{logger}->info("begin async search...");
 
-my $ssdp_header = <<"SSDP_SEARCH_MSG";
+    $self->{_sonos}->{msearch_cb} = $args{cb} if(exists($args{cb}));
+    $self->{_sonos}->{msearch_iv} = AnyEvent->timer(
+	after => 0,
+	interval => $args{iv},
+	cb => sub {
+	    $self->{_sonos}->{logger}->info("begin async search...");
+
+	    my $ssdp_header = <<"SSDP_SEARCH_MSG";
 M-SEARCH * HTTP/1.1
 Host: $Net::UPnP::SSDP_ADDR:$Net::UPnP::SSDP_PORT
 Man: "ssdp:discover"
@@ -228,10 +240,11 @@ MX: $args{mx}
 
 SSDP_SEARCH_MSG
 
-    $ssdp_header =~ s/\r//g;
-    $ssdp_header =~ s/\n/\r\n/g;
+            $ssdp_header =~ s/\r//g;
+	    $ssdp_header =~ s/\n/\r\n/g;
 
-    $self->{_sonos}->{ssdp}->push_send($ssdp_header, [ $Net::UPnP::SSDP_ADDR, $Net::UPnP::SSDP_PORT ]);
+	    $self->{_sonos}->{ssdp}->push_send($ssdp_header, [ $Net::UPnP::SSDP_ADDR, $Net::UPnP::SSDP_PORT ]);
+	});
 }
 
 sub regSrvSubs($$$) {
