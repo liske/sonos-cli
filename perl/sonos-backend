@@ -52,7 +52,47 @@ BEGIN {
     sonos_config_register(qq(sonos-backend/CtrlListenPort), qr/^\d+$/, qq(Control socket bind tcp port.), 0, 1400);
 }
 
-$0 = 'sonos-backend';
+$Getopt::Std::STANDARD_HELP_VERSION++;
+
+sub HELP_MESSAGE {
+    print <<USG;
+Usage:
+
+  $0 [-c <cfg>] [-r <rundir>] [-f] [-d] | [-t]
+
+    -v		be more verbose
+    -c <cfg>	config filename
+    -r <rundir> where to put the PID file
+    -f          stay in foreground
+    -d          enable debugging
+
+    -t          generate configuration template and exit
+
+USG
+}
+
+sub VERSION_MESSAGE {
+    print <<LIC;
+
+sonos-cli $Net::UPnP::SONOS::VERSION - Command line interface to control 'Sonos ZonePlayer' 
+
+Authors:
+  Thomas Liske <thomas\@fiasko-nw.net>
+
+Copyright Holder:
+  2010 - 2014 (C) Thomas Liske [http://fiasko-nw.net/~thomas/]
+
+Upstream:
+  https://github.com/liske/sonos-cli
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or
+(at your option) any later version.
+
+LIC
+#/
+}
 
 our $opt_d;
 our $opt_f;
@@ -61,6 +101,7 @@ our $opt_c;
 our $opt_t;
 getopts('r:dfc:t');
 
+$0 = 'sonos-backend';
 my $mypid = $$;
 my @pipe_pids;
 
@@ -165,12 +206,8 @@ my $json = JSON::Any->new();
 my $sonos = Net::UPnP::SONOS->new();
 my %groups;
 my %zones;
-$sonos->search_async(iv => 3600, cb => sub {
-    %groups = $sonos->getGroups();
-    %zones = $sonos->getZones();
-
-    $main::logger->notice("topology update, found ".(scalar keys %zones)." zones in ".(scalar keys %groups)." groups");
-});
+$sonos->search;
+$main::logger->notice("trigged topology update");
 
 sub retval {
     return $json->encode(

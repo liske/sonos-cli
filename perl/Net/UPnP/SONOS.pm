@@ -26,9 +26,11 @@ package Net::UPnP::SONOS;
 
 use AnyEvent;
 use AnyEvent::HTTPD;
+use AnyEvent::Handle::UDP;
 use HTTP::Status qw(:constants status_message);
 use Log::Any;
 use Socket;
+use IO::Socket::Multicast;
 
 use strict;
 use warnings;
@@ -61,7 +63,6 @@ our @EXPORT = qw(
 our $VERSION = '0.1.0';
 
 BEGIN {
-    sonos_config_register(qq(SONOS/SearchTimeout), qr/^\d+$/, qq(Timeout for UPnP device search.), 0, 3);
     sonos_config_register(qq(SONOS/BackendPort), qr/^\d+$/, qq(Backend HTTP port used for event registration.), 0, 1401);
 }
 
@@ -71,7 +72,6 @@ sub new {
 
     $self->{_sonos}->{logger} = Log::Any->get_logger(category => __PACKAGE__);
     $self->{_sonos}->{speak} = Net::UPnP::SONOS::Speak->new;
-    $self->{_sonos}->{search_timeout} = sonos_config_get(qq(SONOS/SearchTimeout));
     $self->{_sonos}->{sid2dev} = { };
     $self->{_sonos}->{httpd} = AnyEvent::HTTPD->new(
 	allowed_methods => [qw(NOTIFY GET)],
@@ -119,7 +119,38 @@ sub new {
 		$req->respond([HTTP_INTERNAL_SERVER_ERROR, status_message(HTTP_INTERNAL_SERVER_ERROR), { 'Content-Type' => 'text/plain' }, 'Method unavailable: '.$req->method]);
 	    }
 	},);
-    $self->{_sonos}->{logger}->notice("listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
+    $self->{_sonos}->{logger}->notice("httpd listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
+    $self->{_sonos}->{logger}->notice("ssdp listening on ".$self->{_sonos}->{httpd}->host.":$Net::UPnP::SSDP_PORT...");
+
+    $self->{_sonos}->{ssdp} = AnyEvent::Handle::UDP->new(
+	bind => [ $self->{_sonos}->{httpd}->host, $Net::UPnP::SSDP_PORT ],
+	on_recv => sub {
+	    my $msg = shift;
+	    $msg =~ /^(\S+)\s/;
+	    my $method = $1;
+
+	    if($method eq 'HTTP/1.1' &&
+	       $msg =~ m/USN: (uuid:RINCON_.+)01400::urn:schemas-upnp-org:device:ZonePlayer:1\r/i) {
+	    
+		my $zpid = $1;
+		unless(exists($self->{_sonos}->{search}->{zps}->{$zpid})) {
+		    $self->{_sonos}->{logger}->info("discovered unknown device by SSDP M-SEARCH: ", $zpid);
+		    $self->extract_ssdp($msg);
+		}
+	    }
+	    elsif($method eq 'NOTIFY' &&
+	       $msg =~ m/USN: (uuid:RINCON_.+)01400::urn:schemas-upnp-org:device:ZonePlayer:1\r/i) {
+	    
+		my $zpid = $1;
+		unless(exists($self->{_sonos}->{search}->{zps}->{$zpid})) {
+		    $self->{_sonos}->{logger}->info("discovered unknown device by SSDP NOTIFY: ", $zpid);
+		    $self->extract_ssdp($msg);
+		}
+	    }
+	    elsif($method ne 'M-SEARCH') {
+		$self->{_sonos}->{logger}->info('unhandled SSDP message: ', $msg);
+	    }
+    });
 
     bless $self, $class;
     return $self;
@@ -137,103 +168,56 @@ sub speak {
     return $self->{_sonos}->{speak};
 }
 
-sub search {
-    die;
+sub extract_ssdp {
     my $self = shift;
-    $self->{_sonos}->{zones} = undef;
-    $self->{_sonos}->{groups} = undef;
+    my $ssdp_res_msg = shift;
 
-    my @zps = $self->SUPER::search(st => 'urn:schemas-upnp-org:device:ZonePlayer:1', mx => $self->{_sonos}->{search_timeout});
-    foreach my $zp (@zps) {
-	my %services;
-	$services{(SONOS_SRV_AlarmClock)} = $zp->getservicebyname(SONOS_SRV_AlarmClock);
-	$services{(SONOS_SRV_DeviceProperties)} = $zp->getservicebyname(SONOS_SRV_DeviceProperties);
-	$services{(SONOS_SRV_AVTransport)} = $zp->getservicebyname(SONOS_SRV_AVTransport);
+    print "$ssdp_res_msg" if ($Net::UPnP::DEBUG);
 	
-	
-# GetZoneInfo (get MACAddress to build UDN)
-# HACK: $zp->getudn() is broken, try to build the UDN
-#       from the MACAddress - this might fail :-(
-	my $aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneInfo');
-	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    carp 'Got error code '.$aresp->getstatuscode;
-	    next;
-	}
-	my $ZoneInfo = $aresp->getargumentlist;
-	my $UDN = $ZoneInfo->{MACAddress};
-	$UDN =~ s/://g;
-	$UDN = "RINCON_${UDN}01400";
-	
-	$self->{_sonos}->{zones}->{$UDN}->{zone} = $zp;
-	$self->{_sonos}->{zones}->{$UDN}->{services} = \%services;
-	$self->{_sonos}->{zones}->{$UDN}->{ZoneInfo} = $ZoneInfo;
-	
+    unless ($ssdp_res_msg =~ m/LOCATION[ :]+(.*)\r/i) {
+	$self->{_sonos}->{logger}->info("ignore response missing LOCATION header");
+	return;
+    }		
 
-# GetZoneAttributes (get zone name)
-	$aresp = $services{(SONOS_SRV_DeviceProperties)}->postaction('GetZoneAttributes');
-	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    carp 'Got error code '.$aresp->getstatuscode;
-	    next;
-	}
-	$self->{_sonos}->{zones}->{$UDN}->{ZoneAttributes} = $aresp->getargumentlist;
-
-	
-	my %aargs = (
-	    'InstanceID' => 0,
-	    );
-	
-	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetPositionInfo', \%aargs);
-	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    carp 'Got error code '.$aresp->getstatuscode;
-	    next;
-	}
-	$self->{_sonos}->{zones}->{$UDN}->{PositionInfo} = $aresp->getargumentlist;
-	
-	
-	$aresp = $services{(SONOS_SRV_AVTransport)}->postaction('GetTransportInfo', \%aargs);
-	if($aresp->getstatuscode != SONOS_STATUS_OK) {
-	    carp 'Got error code '.$aresp->getstatuscode;
-	    next;
-	}
-	$self->{_sonos}->{zones}->{$UDN}->{TransportInfo} = $aresp->getargumentlist;
+    my $dev_location = $1;
+    unless ($dev_location =~ m/http:\/\/([0-9a-z.]+)[:]*([0-9]*)\/(.*)/i) {
+	$self->{_sonos}->{logger}->info("ignore response due failing to extract location");
+	return;
     }
+
+    my $dev_addr = $1;
+    my $dev_port = $2;
+    my $dev_path = '/' . $3;
+	
+    my $http_req = Net::UPnP::HTTP->new();
+    my $post_res = $http_req->post($dev_addr, $dev_port, "GET", $dev_path, "", "");
+	
+    my $post_content = $post_res->getcontent();
+    unless($post_content =~ /<UDN>uuid:(RINCON_[\dA-F]+)\W/s) {
+	print "$post_content\n";
+	$self->{_sonos}->{logger}->info("ignore response due failing to extract UDN");
+	return
+    }
+    my $zpid = Net::UPnP::SONOS::ZonePlayer::UDN2ShortID("uuid:$1");
+	
+    my $dev = ( exists($self->{_sonos}->{search}->{zps}->{$zpid}) ? $self->{_sonos}->{search}->{zps}->{$zpid} : Net::UPnP::SONOS::ZonePlayer->new($self, $self->{_sonos}->{httpd} ) );
+    $dev->setssdp($ssdp_res_msg);
+    $dev->setdescription($post_content);
+    $dev->subEvents($self->{_sonos}->{httpd});
+    $dev->init;
+
+    $self->{_sonos}->{search}->{zps}->{$zpid} = $dev;
 }
 
-sub search_async {
-    my $self = shift;
-    my %args = (
-	iv => 0,
-	@_,
-	);
-
-    $self->{_sonos}->{logger}->debug("search_async(iv = %ds", $args{iv});
-    $self->search_async_once(%args);
-    $self->{_sonos}->{search}->{iv} = AnyEvent->timer(
-	after => $args{iv},
-	interval => $args{iv},
-	cb => sub {
-	    $self->search_async_once(%args);
-	},
-    ) if($args{iv} > 0);
-}
-
-sub search_async_term {
-    my $self = shift;
-
-    $self->{_sonos}->{logger}->debug("terminating search_async");
-    $self->{_sonos}->{search}->{iv} = undef;
-}
-
-sub search_async_once {
+sub search {
     my $self = shift;
     my %args = (
 	st => 'urn:schemas-upnp-org:device:ZonePlayer:1',
-	mx => $self->{_sonos}->{search_timeout},
-	cb => undef,
+	mx => 60,
 	@_,
     );
 		
-    $self->{_sonos}->{logger}->debug("begin async search...");
+    $self->{_sonos}->{logger}->info("begin async search...");
 
 my $ssdp_header = <<"SSDP_SEARCH_MSG";
 M-SEARCH * HTTP/1.1
@@ -247,62 +231,7 @@ SSDP_SEARCH_MSG
     $ssdp_header =~ s/\r//g;
     $ssdp_header =~ s/\n/\r\n/g;
 
-    my $ssdp_sock;
-    socket($ssdp_sock, AF_INET, SOCK_DGRAM, getprotobyname('udp'));
-    my $ssdp_mcast = sockaddr_in($Net::UPnP::SSDP_PORT, inet_aton($Net::UPnP::SSDP_ADDR));
-
-    $self->{_sonos}->{search}->{io} = AnyEvent->io(fh => $ssdp_sock, poll => 'r', cb => sub {
-	my $ssdp_res_msg;
-	recv($ssdp_sock, $ssdp_res_msg, 4096, 0);
-
-	print "$ssdp_res_msg" if ($Net::UPnP::DEBUG);
-	
-	unless ($ssdp_res_msg =~ m/LOCATION[ :]+(.*)\r/i) {
-	    $self->{_sonos}->{logger}->info("ignore response missing LOCATION header");
-	    return;
-	}		
-
-	my $dev_location = $1;
-	unless ($dev_location =~ m/http:\/\/([0-9a-z.]+)[:]*([0-9]*)\/(.*)/i) {
-	    $self->{_sonos}->{logger}->info("ignore response due failing to extract location");
-	    return;
-	}
-
-	my $dev_addr = $1;
-	my $dev_port = $2;
-	my $dev_path = '/' . $3;
-	
-	my $http_req = Net::UPnP::HTTP->new();
-	my $post_res = $http_req->post($dev_addr, $dev_port, "GET", $dev_path, "", "");
-	
-	my $post_content = $post_res->getcontent();
-	unless($post_content =~ /<UDN>uuid:(RINCON_[\dA-F]+)\W/s) {
-	    print "$post_content\n";
-	    $self->{_sonos}->{logger}->info("ignore response due failing to extract UDN");
-	    return
-	}
-	my $zpid = Net::UPnP::SONOS::ZonePlayer::UDN2ShortID("uuid:$1");
-	
-	my $dev = ( exists($self->{_sonos}->{search}->{zps}->{$zpid}) ? $self->{_sonos}->{search}->{zps}->{$zpid} : Net::UPnP::SONOS::ZonePlayer->new($self, $self->{_sonos}->{httpd} ) );
-	$dev->setssdp($ssdp_res_msg);
-	$dev->setdescription($post_content);
-	$dev->subEvents($self->{_sonos}->{httpd});
-	$dev->init;
-
-	$self->{_sonos}->{search}->{zps}->{$zpid} = $dev;
-    });
-    $self->{_sonos}->{search}->{timer} = AnyEvent->timer(after => ($args{mx} + 1), cb => sub {
-	$self->{_sonos}->{logger}->info("finished async search");
-
-	# drop watchers
-	$self->{_sonos}->{search}->{io} = undef;
-	$self->{_sonos}->{search}->{timer} = undef;
-
-	# call callback
-	&{$args{cb}}($self) if(defined($args{cb}));
-    });
-
-    send($ssdp_sock, $ssdp_header, 0, $ssdp_mcast);
+    $self->{_sonos}->{ssdp}->push_send($ssdp_header, [ $Net::UPnP::SSDP_ADDR, $Net::UPnP::SSDP_PORT ]);
 }
 
 sub regSrvSubs($$$) {
