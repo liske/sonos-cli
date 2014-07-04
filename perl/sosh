@@ -32,7 +32,6 @@ use AnyEvent::Socket;
 use AnyEvent::Handle;
 use Data::Dumper;
 use Getopt::Std;
-use Net::UPnP::SONOS;
 
 $|++;
 $Getopt::Std::STANDARD_HELP_VERSION++;

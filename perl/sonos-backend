@@ -24,6 +24,8 @@
 #   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 #
 
+use lib '.';
+
 use AnyEvent;
 use AnyEvent::HTTPD;
 use AnyEvent::Socket qw(tcp_server);
@@ -138,14 +140,20 @@ sub WARN_handler {
 sub DIE_handler {
     my($signal) = @_;
 
-	if(defined $main::logger) {
-		$main::logger->critical("ERROR: $signal");
-	}
-	else {
-		printf STDERR "ERROR: $signal\n";
-	}
+    if(defined $main::logger) {
+	$main::logger->critical("ERROR: $signal");
 
-	exit 1;
+	$main::logger->critical('STACK TRACE:');
+	my $i = 1;
+	while ((my @call_details = caller($i++))) {
+	    $main::logger->critical("  $call_details[1]:$call_details[2] \@ function $call_details[3]");
+	}    
+    }
+    else {
+	printf STDERR "ERROR: $signal\n";
+    }
+    
+    exit 1;
 }
 
 sub INT_handler {
