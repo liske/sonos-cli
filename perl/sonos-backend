@@ -112,13 +112,14 @@ $main::logger = Log::Dispatch->new(callbacks => $logfmt);
 $main::logger->add(
     Log::Dispatch::Screen->new(
 	name => 'console',
-	min_level => ($opt_f ? ($opt_d ? 'info' : 'notice') : 'warning'),
+ 	min_level => ($opt_f ? ($opt_d ? 'debug' : 'info') : 'warning'),
     )
 );
 $main::logger->add(
     Log::Dispatch::Syslog->new(
 	name => 'syslog',
 	min_level => ($opt_d ? 'info' : 'notice'),
+ 	min_level => ($opt_d ? 'debug' : 'info'),
 	ident => 'sonos-backend',
 	logopt => 'pid',
 	facility => 'daemon',
@@ -143,11 +144,13 @@ sub DIE_handler {
     if(defined $main::logger) {
 	$main::logger->critical("ERROR: $signal");
 
-	$main::logger->critical('STACK TRACE:');
-	my $i = 1;
-	while ((my @call_details = caller($i++))) {
-	    $main::logger->critical("  $call_details[1]:$call_details[2] \@ function $call_details[3]");
-	}    
+	if($opt_d) {
+	    $main::logger->debug('STACK TRACE:');
+	    my $i = 0;
+	    while ((my @call_details = caller($i++))) {
+		$main::logger->debug("  $call_details[3]\tin $call_details[1]:$call_details[2]");
+	    }
+	}
     }
     else {
 	printf STDERR "ERROR: $signal\n";
