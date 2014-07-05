@@ -83,7 +83,7 @@ REQUEST_HEADER
 	$post_sockaddr = sockaddr_in($post_port, inet_aton($post_addr));
 	socket(HTTP_SOCK, PF_INET, SOCK_STREAM, getprotobyname('tcp'));
 	connect(HTTP_SOCK, $post_sockaddr);
-	select(HTTP_SOCK); $|=1; select(STDOUT);
+	my $oldfh = select(HTTP_SOCK); $|=1; select($oldfh);
 
 	if ($Net::UPnP::DEBUG) {
 		print $req_header;
