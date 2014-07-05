@@ -669,7 +669,7 @@ my $tctrl_sock = tcp_server sonos_config_get(qq(sonos-backend/CtrlListenAddr)), 
 		}
 		else {
 		    foreach my $i (0 .. $#args) {
-			last unless(defined($args[$i]));
+			last unless(defined($cref->{args}->[$i]));
 
 			unless($args[$i] =~ /$cref->{args}->[$i]/i) {
 			    print $fh retval(HTTP_BAD_REQUEST, 'Argument #'.($i+1)." has invalid format (expected m/$cref->{args}->[$i]/i)!", undef)."\n";
