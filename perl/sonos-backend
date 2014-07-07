@@ -560,7 +560,7 @@ my %posinfo;
 		    my $status = shift;
 
 		    if($status->{TransportState}->{val} eq 'PLAYING') {
-			if($count) {
+			if($count > 1) {
 			    $group->avtStop;
 			    $group->avtURI($posinfo{$zpid}->{TrackURI});
 			    $group->avtPlay if($oldstatus->{TransportState}->{val} eq 'PLAYING');
