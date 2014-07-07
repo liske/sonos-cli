@@ -120,8 +120,7 @@ tcp_connect $opt_h, $opt_p, sub {
     $hstd = new AnyEvent::Handle(
 	fh => \*STDIN,
 	on_eof => sub {
-	    close($fh);
-	    exit;
+	    $htcp->push_write("exit\n");
 	},
 	on_read => sub {
 	    if($opt_i eq 'human') {
