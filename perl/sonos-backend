@@ -555,7 +555,7 @@ my %posinfo;
 		$posinfo{$zpid} = $ret->getargumentlist;
 		my $oldstatus = $group->getStatus;
 
-		my $count;
+		my $count = 0;
 		$group->regUpdateStatus(sub {
 		    my $status = shift;
 
