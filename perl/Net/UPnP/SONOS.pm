@@ -81,18 +81,22 @@ sub new {
 	request => sub {
 	    my ($httpd, $req) = @_;
 	    my $headers = $req->headers;
+	    my %rheaders = (
+		Server => qq(sonos-cli $VERSION),
+		);
 
 	    if($req->method eq qq(NOTIFY)) {
 		my $sid = (exists($headers->{sid}) ? $headers->{sid} : '');
 
+		$rheaders{q(Content-Type)} = 'text/plain';
 		unless(exists($self->{_sonos}->{sid2dev}->{$sid})) {
 		    my $msg = "rejecting unknown subscription '$sid'";
 		    $self->{_sonos}->{logger}->notice($msg);
-		    $req->respond([412, 'Precondition Failed', { 'Content-Type' => 'text/plain' }, $msg]);
+		    $req->respond([412, 'Precondition Failed', \%rheaders, $msg]);
 		    
 		    return;
 		}
-		$req->respond([HTTP_OK, status_message(HTTP_OK), { 'Content-Type' => 'text/plain' }, 'OK']);
+		$req->respond([HTTP_OK, status_message(HTTP_OK), \%rheaders, 'OK']);
 
 		$self->{_sonos}->{sid2dev}->{$sid}->handleNotify($sid, $req->content);
 	    }
@@ -105,18 +109,18 @@ sub new {
 
 		    my $fh = $self->{_sonos}->{speak}->open($digest);
 		    if(defined($fh)) {
-			$req->respond ({ content => ['audio/mpeg', do { local $/; <$fh> }] });
+			$req->respond([HTTP_OK, status_message(HTTP_OK), { %rheaders, 'Content-Type' => 'audio/mpeg', 'icy-name' => qq(sonos-cli $VERSION), 'icy-pub' => 0 }, do { local $/; <$fh> }]);
 		    }
 		    else {
-			$req->respond([HTTP_NOT_FOUND, status_message(HTTP_NOT_FOUND), { 'Content-Type' => 'text/plain' }, "Digest unknown: $digest"]);
+			$req->respond([HTTP_NOT_FOUND, status_message(HTTP_NOT_FOUND), { %rheaders, 'Content-Type' => 'text/plain' }, "Digest unknown: $digest"]);
 		    }
 		}
 		else {
-		    $req->respond([HTTP_BAD_REQUEST, status_message(HTTP_BAD_REQUEST), { 'Content-Type' => 'text/plain' }, "Unknown request: $path[0]"]);
+		    $req->respond([HTTP_BAD_REQUEST, status_message(HTTP_BAD_REQUEST), { %rheaders, 'Content-Type' => 'text/plain' }, "Unknown request: $path[0]"]);
 		}
 	    }
 	    else {
-		$req->respond([HTTP_INTERNAL_SERVER_ERROR, status_message(HTTP_INTERNAL_SERVER_ERROR), { 'Content-Type' => 'text/plain' }, 'Method unavailable: '.$req->method]);
+		$req->respond([HTTP_INTERNAL_SERVER_ERROR, status_message(HTTP_INTERNAL_SERVER_ERROR), { %rheaders, 'Content-Type' => 'text/plain' }, 'Method unavailable: '.$req->method]);
 	    }
 	},);
     $self->{_sonos}->{logger}->notice("httpd listening on ".$self->{_sonos}->{httpd}->host.":".$self->{_sonos}->{httpd}->port."...");
