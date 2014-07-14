@@ -54,7 +54,7 @@ Usage:
     --help      show this help
     --version   show version information
 
-    <script>    read commands from scripting file
+    <script>    read commands from scripting file [/dev/stdin]
 
 This is a sonos shell/interpreter to execute a batch of sonos
 commands.
