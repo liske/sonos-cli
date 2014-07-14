@@ -36,12 +36,23 @@ use Getopt::Std;
 $|++;
 $Getopt::Std::STANDARD_HELP_VERSION++;
 
-our $opt_h = '127.0.0.1';
-our $opt_p = 1400;
-our $opt_i = 'human';
-our $opt_o = 'human';
+our $opt_h;
+our $opt_p;
+our $opt_i;
+our $opt_o;
+
+sub opt_default {
+    $opt_h = '127.0.0.1';
+    $opt_p = 1400;
+    $opt_i = 'human';
+    $opt_o = 'human';
+}
+
+opt_default;
 
 sub HELP_MESSAGE {
+    opt_default;
+
     print <<USG;
 Usage:
 
