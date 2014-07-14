@@ -45,7 +45,7 @@ sub HELP_MESSAGE {
     print <<USG;
 Usage:
 
-  sosh [-h <host>] [-p <port>] [-i <format>] [-o <format>]
+  sosh [-h <host>] [-p <port>] [-i <format>] [-o <format>] [<script>]
 
     -h <host>	sonos-backend host [$opt_h]
     -p <port>   sonos-backend listen port [$opt_p]
@@ -54,7 +54,9 @@ Usage:
     --help      show this help
     --version   show version information
 
-This is a sonos shell/pipe to execute a batch of sonos
+    <script>    read commands from scripting file
+
+This is a sonos shell/interpreter to execute a batch of sonos
 commands.
 
 USG
@@ -88,6 +90,15 @@ unless(getopts('h:p:i:o:')) {
     exit 1;
 }
 
+# read from script file
+if(scalar @ARGV > 0) {
+    close(STDIN);
+    unless(open(STDIN, '<', $ARGV[0])) {
+        print STDERR "Failed to read from '$ARGV[0]': $!\n";
+        exit 1;
+    }
+}
+
 my $htcp;
 my $hstd;
 
@@ -96,7 +107,7 @@ tcp_connect $opt_h, $opt_p, sub {
     unless($fh = shift) {
 	print STDERR "Unable to connect to $opt_h:$opt_p: $!\n";
 	close(STDIN);
-	exit;
+	exit 2;
     };
 
     $htcp = new AnyEvent::Handle(
@@ -125,11 +136,16 @@ tcp_connect $opt_h, $opt_p, sub {
 	on_read => sub {
 	    if($opt_i eq 'human') {
 		$hstd->push_read(line => sub {
+		    return if($_[1] =~ /^\s*#|^\s*$/);
+
+		    print "> '$_[1]'\n";
 		    $htcp->push_write("$_[1]\n");
 		});
 	    }
 	    elsif($opt_i eq 'json') {
 		$hstd->push_read(json => sub {
+		    return if($_[1] =~ /^\s*#|^\s*$/);
+
 		    $htcp->push_write($htcp->json_coder->encode($_[1]));
 		});
 	    }
